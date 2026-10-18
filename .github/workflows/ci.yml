@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: check + test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Toolchain versions
+        run: moon version --all
+
+      - name: Update registry index
+        # The runner image ships a stale index; without this the pinned
+        # moonbitlang/x version cannot be resolved.
+        run: moon update
+
+      - name: Type check every target
+        # No --deny-warn here. The runner installs the current toolchain, which
+        # adds deprecation warnings over time; failing on those would make CI go
+        # red for reasons that are not about this code. The warning count is
+        # still printed, and the local gate (`moon check --deny-warn` on the
+        # toolchain in the README) stays clean.
+        run: moon check --target all
+
+      - name: Unit tests
+        run: moon test --target wasm
+
+      - name: CLI against a real schema
+        # End to end: read examples/invoice.xsd, validate four amounts that sit
+        # on both sides of the maxInclusive and fractionDigits boundaries.
+        run: |
+          moon run --target js cmd/main -- --schema examples/invoice.xsd amount 100.50 99999999.99
+          moon run --target js cmd/main -- --schema examples/invoice.xsd issueDate 2026-02-28 2024-02-29
+
+      - name: Invalid values are rejected
+        # The CLI prints INVALID and keeps going; this step fails only if a
+        # value that must be rejected comes back valid.
+        run: |
+          out=$(moon run --target js cmd/main -- --schema examples/invoice.xsd amount 100000000 1.234 || true)
+          echo "$out"
+          echo "$out" | grep -q "INVALID" || (echo "expected at least one INVALID line" && exit 1)
