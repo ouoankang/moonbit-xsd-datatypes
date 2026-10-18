@@ -1,0 +1,7 @@
+import {
+  "ouoankang/moonbit-xsd-datatypes/src/datatypes" @dt,
+  "moonbitlang/core/env" @env,
+  "moonbitlang/x/fs" @fs,
+}
+
+pkgtype(kind: "executable")
