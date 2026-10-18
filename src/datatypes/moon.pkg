@@ -1,0 +1,5 @@
+import {
+  "ouoankang/moonbit-xsd-datatypes/src/xml" @xml,
+}
+
+pkgtype(kind: "library")
