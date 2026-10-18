@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A small invoice schema in the style of the ones used for electronic invoices.
+
+  It exists to be validated by cmd/main, and to show the cases where a datatype
+  validator earns its keep: a fixed-width numeric code, an amount with a capped
+  scale, a rate restricted to a closed set, and an issue date that must be a
+  real calendar day.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:example:invoice"
+           elementFormDefault="qualified">
+
+  <xs:simpleType name="invoiceCode">
+    <xs:restriction base="xs:string">
+      <xs:length value="12"/>
+      <xs:pattern value="[0-9]{12}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="amount">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="0"/>
+      <xs:maxInclusive value="99999999.99"/>
+      <xs:fractionDigits value="2"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="vatRate">
+    <xs:restriction base="xs:decimal">
+      <xs:enumeration value="0.01"/>
+      <xs:enumeration value="0.03"/>
+      <xs:enumeration value="0.06"/>
+      <xs:enumeration value="0.09"/>
+      <xs:enumeration value="0.13"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="issueDate">
+    <xs:restriction base="xs:date"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="buyerTaxId">
+    <xs:restriction base="xs:string">
+      <xs:length value="18"/>
+      <xs:pattern value="[0-9A-Z]{18}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>
