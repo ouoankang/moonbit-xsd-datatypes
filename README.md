@@ -78,8 +78,8 @@ INVALID  amount  1.234        =>  facet violation: fractionDigits 3 exceeds 2
   `minExclusive`、`totalDigits`、`fractionDigits`。
 - **三种 variety**：atomic、list、union。
 - **XML Schema 正则方言**（`pattern` 用）：`\d`/`\w`/`\s` 的 Unicode 语义、
-  字符类与减法、量词、分组、选择、`\i`/`\c`；`pattern` 按规范是 **search 语义**，
-  不是全串锚定。
+  字符类与减法、量词、分组、选择、`\i`/`\c`；`pattern` 按规范**隐式全串锚定**，
+  要表达"包含"必须显式写 `.*`。
 - **Namespace-aware XML 读取**：元素、属性、文本、CDATA、注释、PI、字符引用、
   实体引用、xmlns 作用域栈。默认命名空间作用于元素、**不**作用于属性。
 - **XSD 文档解析**：从 `xs:simpleType` 与 `xs:element` 读出类型，
@@ -110,7 +110,7 @@ INVALID  amount  1.234        =>  facet violation: fractionDigits 3 exceeds 2
 
 58 个单元测试，覆盖词法空间的边界而非 happy path：`xs:integer` 拒绝 `1.0`、
 2 月 30 日是词法合法但值非法、`INF` 区分大小写、`24:00:00` 是 24 点唯一合法值、
-`pattern` 是 search 语义（`A1` 匹配 `[A-Z]+`）。另有一个跑 W3C 套件的测试。
+`pattern` 全串锚定（`A1` 不匹配 `[A-Z]+`）。另有一个跑 W3C 套件的测试。
 
 ```text
 Total tests: 59, passed: 59, failed: 0.
