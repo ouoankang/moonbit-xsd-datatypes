@@ -11,8 +11,13 @@ pub(all) struct Facets {
   length : Int?
   min_length : Int?
   max_length : Int?
-  /// Multiple patterns are OR-ed: a value is valid if it matches at least one.
-  patterns : Array[String]
+  /// Patterns grouped by the restriction step that declared them.
+  ///
+  /// Within a group they are OR-ed: any one matching satisfies that step.
+  /// Across groups they are AND-ed, because each step adds a constraint rather
+  /// than replacing the previous one. Flattening them into one list would lose
+  /// the constraint from the base type.
+  patterns : Array[Array[String]]
   enumeration : Array[XsdValue]
   max_inclusive : XsdValue?
   max_exclusive : XsdValue?
@@ -171,6 +176,16 @@ fn compare_durations(a : Duration, b : Duration) -> Int {
 }
 
 ///|
+/// True for the one value that is unordered with respect to everything,
+/// including itself.
+fn is_nan_value(v : XsdValue) -> Bool {
+  match v {
+    Flt(NotANumber) => true
+    _ => false
+  }
+}
+
+///|
 /// Applies every facet present in `f` to `v`.
 pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValErr] {
   let measured = measured_length(v)
@@ -225,19 +240,19 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
     // canonical form of the value. `1` and `true` are the same boolean, but a
     // pattern of `1` only matches the first spelling.
     let text = raw
-    let mut matched = false
-    for p in f.patterns {
-      // XSD implicitly anchors every pattern at head and tail, so this is a
-      // full-string match, not a search.  exists for
-      // callers that want the unanchored behaviour, but the facet must not
-      // use it: with a search, `A1` would satisfy `[A-Z]+`.
-      if xsd_pattern_full_match(p, text) {
-        matched = true
-        break
+    // Every restriction step must be satisfied; within a step any pattern will
+    // do. XSD anchors each one at head and tail, so this is a full-string match.
+    for group in f.patterns {
+      let mut matched = false
+      for p in group {
+        if xsd_pattern_full_match(p, text) {
+          matched = true
+          break
+        }
       }
-    }
-    if !matched {
-      return Err(Facet("value does not match any pattern"))
+      if !matched {
+        return Err(Facet("value does not match any pattern"))
+      }
     }
   }
   if !f.enumeration.is_empty() {
@@ -263,6 +278,16 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
     if !found {
       return Err(Facet("value is not in the enumeration"))
     }
+  }
+  // NaN is not ordered with respect to any value, itself included, so it cannot
+  // satisfy an ordering facet. Without this, the rank used to make NaN sort
+  // after +INF would let it pass a one-sided bound.
+  let has_ordering_facet = f.min_inclusive is Some(_) ||
+    f.max_inclusive is Some(_) ||
+    f.min_exclusive is Some(_) ||
+    f.max_exclusive is Some(_)
+  if has_ordering_facet && is_nan_value(v) {
+    return Err(Facet("NaN cannot satisfy an ordering facet"))
   }
   match f.min_inclusive {
     Some(bound) =>

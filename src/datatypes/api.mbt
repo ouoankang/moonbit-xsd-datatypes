@@ -97,7 +97,9 @@ pub fn check_value(t : SimpleType, raw : String) -> ValResult {
       }
     }
     ListOf(item, facets) => check_list(item, raw, facets)
-    UnionOf(members, facets) => check_union(members, raw, facets)
+    // A union's whiteSpace is fixed at collapse, regardless of what its members
+    // prescribe, so the raw form is folded before any member sees it.
+    UnionOf(members, facets) => check_union(members, ws_collapse(raw), facets)
   }
 }
 

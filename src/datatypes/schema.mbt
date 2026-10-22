@@ -197,7 +197,7 @@ fn read_facets(
     length,
     min_length,
     max_length,
-    patterns,
+    patterns: if patterns.is_empty() { [] } else { [patterns] },
     enumeration,
     max_inclusive,
     max_exclusive,
@@ -243,12 +243,33 @@ fn parse_simple_type(
             Ok(f) => f
             Err(e) => return Err(e)
           }
-          // A restriction keeps the variety of its base and replaces the facets.
+          // A restriction keeps the variety of its base. Most facets are
+          // replaced (a valid restriction only narrows, so the new value already
+          // implies the old one), but patterns accumulate: each step contributes
+          // its own group and all groups must hold.
+          let base_facets = match base_type {
+            Atomic(_, bf) => bf
+            ListOf(_, bf) => bf
+            UnionOf(_, bf) => bf
+          }
+          let merged = Facets::{
+            length: facets.length,
+            min_length: facets.min_length,
+            max_length: facets.max_length,
+            patterns: base_facets.patterns + facets.patterns,
+            enumeration: facets.enumeration,
+            max_inclusive: facets.max_inclusive,
+            max_exclusive: facets.max_exclusive,
+            min_inclusive: facets.min_inclusive,
+            min_exclusive: facets.min_exclusive,
+            total_digits: facets.total_digits,
+            fraction_digits: facets.fraction_digits,
+          }
           return Ok(
             match base_type {
-              Atomic(n, _) => Atomic(n, facets)
-              ListOf(i, _) => ListOf(i, facets)
-              UnionOf(ms, _) => UnionOf(ms, facets)
+              Atomic(n, _) => Atomic(n, merged)
+              ListOf(i, _) => ListOf(i, merged)
+              UnionOf(ms, _) => UnionOf(ms, merged)
             },
           )
         }

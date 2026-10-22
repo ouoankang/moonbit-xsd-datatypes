@@ -143,7 +143,7 @@ test "pattern facet applies on its own" {
     length: None,
     min_length: None,
     max_length: None,
-    patterns: ["[A-Z]+"],
+    patterns: [["[A-Z]+"]],
     enumeration: Array(capacity=0),
     max_inclusive: None,
     max_exclusive: None,
@@ -243,4 +243,75 @@ test "pattern is anchored at head and tail" {
   // Unanchored matching is opt-in.
   assert_true(accepts(s, "containsCaps", "A1"))
   assert_true(accepts(s, "containsCaps", "1A"))
+}
+
+///|
+/// A restriction narrows its base, so the base's patterns keep applying. With
+/// two steps the value has to satisfy both; only patterns within one step are
+/// alternatives. Replacing the facets would silently drop the base constraint.
+test "a restriction inherits the patterns of its base" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"upper\">\n" +
+    "    <xs:restriction base=\"xs:string\">\n" +
+    "      <xs:pattern value=\"[A-Z]+\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "  <xs:simpleType name=\"upper3\">\n" +
+    "    <xs:restriction base=\"upper\">\n" +
+    "      <xs:pattern value=\".{3}\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "upper3", "ABC"))
+  assert_false(accepts(s, "upper3", "ABCD"))
+  // Satisfies the derived pattern but not the inherited one.
+  assert_false(accepts(s, "upper3", "abc"))
+}
+
+///|
+/// NaN is unordered with respect to every value, itself included, so no
+/// ordering facet can hold for it. A one-sided bound is the case that a naive
+/// total order gets wrong.
+test "NaN cannot satisfy a one-sided bound" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"lower\">\n" +
+    "    <xs:restriction base=\"xs:double\">\n" +
+    "      <xs:minInclusive value=\"0\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "lower", "0"))
+  assert_true(accepts(s, "lower", "1e10"))
+  assert_false(accepts(s, "lower", "NaN"))
+}
+
+///|
+/// A union's whitespace is fixed at collapse no matter what its members do, so
+/// a string member must not see the leading and trailing blanks.
+test "a union collapses whitespace before its members see it" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"strOrInt\">\n" +
+    "    <xs:union memberTypes=\"xs:string xs:int\"/>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  match validate_named(s, "strOrInt", "  abc  ") {
+    Ok(Str(v)) => assert_eq(v, "abc")
+    Ok(_) => abort("expected a string value")
+    Err(_) => abort("value should be accepted")
+  }
 }
