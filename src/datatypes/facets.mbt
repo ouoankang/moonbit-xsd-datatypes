@@ -89,7 +89,7 @@ pub fn value_eq(a : XsdValue, b : XsdValue) -> Bool {
         (NotANumber, NotANumber) => true
         _ => false
       }
-    (Temporal(x), Temporal(y)) => x.kind == y.kind && compare_temporal(x, y) == 0
+    (Temporal(x), Temporal(y)) => x.kind == y.kind && compare_temporal(x, y) == Some(0)
     (Dur(x), Dur(y)) =>
       x.negative == y.negative &&
       x.months == y.months &&
@@ -114,11 +114,11 @@ pub fn value_cmp(a : XsdValue, b : XsdValue) -> Int? {
     (Flt(x), Flt(y)) => Some(compare_floats(x, y))
     (Temporal(x), Temporal(y)) =>
       if x.kind == y.kind {
-        Some(compare_temporal(x, y))
+        compare_temporal(x, y)
       } else {
         None
       }
-    (Dur(x), Dur(y)) => Some(compare_durations(x, y))
+    (Dur(x), Dur(y)) => compare_durations(x, y)
     _ => None
   }
 }
@@ -154,25 +154,98 @@ fn compare_floats(a : FloatValue, b : FloatValue) -> Int {
 }
 
 ///|
-/// Order on durations: the month part first, then the second part. XSD does not
-/// define a total order on durations, but this is the ordering a validator
-/// needs to honour `minInclusive` when both ends are pure seconds or pure
-/// months.
-fn compare_durations(a : Duration, b : Duration) -> Int {
-  let sign_a = if a.negative { -1 } else { 1 }
-  let sign_b = if b.negative { -1 } else { 1 }
-  if a.months != b.months {
-    return if a.months * sign_a < b.months * sign_b { -1 } else { 1 }
+/// Compares two durations.
+///
+/// XSD does not define a total order here: `P1M` and `P30D` swap places
+/// depending on the reference date, because a month is 28 to 31 days. The order
+/// is defined only where every reference date agrees, so this probes the same
+/// four dates a reference implementation uses and reports None when the answer
+/// depends on the date. The ordering facets treat None as false.
+fn compare_durations(a : Duration, b : Duration) -> Int? {
+  // Same month count, or no months at all: the second parts decide exactly.
+  if a.months == b.months || (a.months == 0 && b.months == 0) {
+    return Some(compare_seconds_part(a, b))
   }
+  // No seconds on either side: the month counts decide.
+  if is_zero_seconds(a) && is_zero_seconds(b) {
+    let sa = signed_months(a)
+    let sb = signed_months(b)
+    return Some(if sa < sb { -1 } else if sa > sb { 1 } else { 0 })
+  }
+  // Mixed. Probe dates spread across the calendar so that a February and a
+  // 31-day month are both exercised.
+  let probes = [(1696, 9, 1), (1697, 2, 1), (1903, 3, 1), (1903, 7, 1)]
+  let mut result : Int? = None
+  for probe in probes {
+    let base = days_from_civil(probe.0, probe.1, probe.2)
+    let ea = duration_endpoint_seconds(base, a)
+    let eb = duration_endpoint_seconds(base, b)
+    let c = if ea < eb { -1 } else if ea > eb { 1 } else { 0 }
+    match result {
+      None => result = Some(c)
+      Some(prev) =>
+        if prev != c {
+          return None
+        }
+    }
+  }
+  result
+}
+
+///|
+/// Where a duration lands when added to a given day, in seconds from that day.
+fn duration_endpoint_seconds(base : Int64, d : Duration) -> Int64 {
+  let (y, m, day) = civil_from_days(base)
+  let sign = if d.negative { -1 } else { 1 }
+  let (ny, nm, nd) = add_months(y, m, day, d.months * sign)
+  let day_shift = days_from_civil(ny, nm, nd) - base
+  day_shift * 86400L + decimal_to_seconds_int64(d.seconds) * sign.to_int64()
+}
+
+///|
+fn signed_months(d : Duration) -> Int {
+  if d.negative {
+    -d.months
+  } else {
+    d.months
+  }
+}
+
+///|
+fn is_zero_seconds(d : Duration) -> Bool {
+  compare_decimal(d.seconds, decimal_zero()) == 0
+}
+
+///|
+/// Compares the second part, honouring the sign of each duration.
+fn compare_seconds_part(a : Duration, b : Duration) -> Int {
   let c = compare_decimal(a.seconds, b.seconds)
   if c == 0 {
     return 0
   }
-  if a.negative {
+  let sa = if a.negative { -1 } else { 1 }
+  let sb = if b.negative { -1 } else { 1 }
+  if sa != sb {
+    return if sa > sb { 1 } else { -1 }
+  }
+  if sa < 0 {
     -c
   } else {
     c
   }
+}
+
+///|
+/// Whole seconds of a non-negative decimal, truncating any fraction. Used for
+/// probing reference dates, where sub-second differences cannot change the sign.
+fn decimal_to_seconds_int64(d : Decimal) -> Int64 {
+  let mut whole = 0L
+  let mut i = 0
+  while i < d.int_part.length() {
+    whole = whole * 10L + (code_at_b(d.int_part, i) - 48).to_int64()
+    i = i + 1
+  }
+  whole
 }
 
 ///|
@@ -296,7 +369,8 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
           if c < 0 {
             return Err(Facet("value is below minInclusive"))
           }
-        None => return Err(Facet("minInclusive needs an ordered type"))
+        None =>
+          return Err(Facet("value is not ordered with respect to minInclusive"))
       }
     None => ()
   }
@@ -307,7 +381,8 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
           if c > 0 {
             return Err(Facet("value is above maxInclusive"))
           }
-        None => return Err(Facet("maxInclusive needs an ordered type"))
+        None =>
+          return Err(Facet("value is not ordered with respect to maxInclusive"))
       }
     None => ()
   }
@@ -318,7 +393,8 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
           if c <= 0 {
             return Err(Facet("value is not above minExclusive"))
           }
-        None => return Err(Facet("minExclusive needs an ordered type"))
+        None =>
+          return Err(Facet("value is not ordered with respect to minExclusive"))
       }
     None => ()
   }
@@ -329,7 +405,8 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
           if c >= 0 {
             return Err(Facet("value is not below maxExclusive"))
           }
-        None => return Err(Facet("maxExclusive needs an ordered type"))
+        None =>
+          return Err(Facet("value is not ordered with respect to maxExclusive"))
       }
     None => ()
   }

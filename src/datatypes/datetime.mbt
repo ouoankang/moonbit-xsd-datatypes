@@ -757,6 +757,38 @@ fn decimal_scale_to_int(d : Decimal, scale : Int) -> Int {
 }
 
 ///|
+/// Inverse of `days_from_civil`: turns a day count back into a calendar date.
+fn civil_from_days(z : Int64) -> (Int, Int, Int) {
+  let zz = z + 719468L
+  let era = if zz >= 0L { zz / 146097L } else { (zz - 146096L) / 146097L }
+  let doe = zz - era * 146097L
+  let yoe = (doe - doe / 1460L + doe / 36524L - doe / 146096L) / 365L
+  let y = yoe + era * 400L
+  let doy = doe - (365L * yoe + yoe / 4L - yoe / 100L)
+  let mp = (5L * doy + 2L) / 153L
+  let d = doy - (153L * mp + 2L) / 5L + 1L
+  let m = mp + (if mp < 10L { 3L } else { -9L })
+  let year = y + (if m <= 2L { 1L } else { 0L })
+  (year.to_int(), m.to_int(), d.to_int())
+}
+
+///|
+/// Adds a duration's month part to a date, clamping the day to the length of
+/// the target month. Adding one month to 31 January gives 28 or 29 February.
+fn add_months(year : Int, month : Int, day : Int, months : Int) -> (Int, Int, Int) {
+  let total = year * 12 + (month - 1) + months
+  let mut ny = total / 12
+  let mut nm = total % 12
+  if nm < 0 {
+    nm = nm + 12
+    ny = ny - 1
+  }
+  let dim = days_in_month(ny, nm + 1)
+  let nd = if day > dim { dim } else { day }
+  (ny, nm + 1, nd)
+}
+
+///|
 /// Number of days from 0001-01-01 to the given date, proleptic Gregorian.
 /// Negative years are handled by extrapolating the same cycle.
 pub fn days_from_civil(year : Int, month : Int, day : Int) -> Int64 {
@@ -790,8 +822,50 @@ pub fn temporal_seconds(t : Temporal) -> Int64 {
 }
 
 ///|
-/// Ordering on temporal values of the same kind.
-pub fn compare_temporal(a : Temporal, b : Temporal) -> Int {
+/// Compares two temporal values of the same kind.
+///
+/// Returns None when the ordering is indeterminate. XSD allows that: a value
+/// carrying a timezone and one without are not always comparable, because a
+/// naive value denotes any instant in a 28-hour window. The rule is
+///
+///   P < Q  iff  P <  (Q read as +14:00)
+///   P > Q  iff  P >  (Q read as -14:00)
+///   otherwise indeterminate
+///
+/// and an indeterminate comparison makes every ordering facet false, so it has
+/// to be distinguishable from "equal" rather than folded into zero.
+pub fn compare_temporal(a : Temporal, b : Temporal) -> Int? {
+  match (a.tz, b.tz) {
+    (Some(_), None) => tzoned_vs_naive(a, b)
+    (None, Some(_)) =>
+      match tzoned_vs_naive(b, a) {
+        Some(r) => Some(-r)
+        None => None
+      }
+    _ => Some(compare_on_seconds(a, b))
+  }
+}
+
+///|
+/// `p` carries a timezone, `q` does not. Reading `q` as +14:00 gives the
+/// earliest instant it can denote; as -14:00 the latest.
+fn tzoned_vs_naive(p : Temporal, q : Temporal) -> Int? {
+  let p_secs = temporal_seconds(p)
+  let q_secs = temporal_seconds(q)
+  let earliest = q_secs - 14L * 3600L
+  let latest = q_secs + 14L * 3600L
+  if p_secs < earliest {
+    Some(-1)
+  } else if p_secs > latest {
+    Some(1)
+  } else {
+    None
+  }
+}
+
+///|
+/// Both sides sit on the same timeline, so a plain comparison applies.
+fn compare_on_seconds(a : Temporal, b : Temporal) -> Int {
   let sa = temporal_seconds(a)
   let sb = temporal_seconds(b)
   if sa != sb {
@@ -812,3 +886,4 @@ pub fn compare_temporal(a : Temporal, b : Temporal) -> Int {
   }
   0
 }
+

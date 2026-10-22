@@ -315,3 +315,60 @@ test "a union collapses whitespace before its members see it" {
     Err(_) => abort("value should be accepted")
   }
 }
+
+///|
+/// A naive value denotes any instant in a 28-hour window, so against a bound
+/// that carries a timezone the comparison can be indeterminate. XSD says an
+/// indeterminate comparison makes the facet false, which is neither "less"
+/// nor "equal" -- folding the naive value into UTC would accept it.
+test "a naive value is indeterminate against a timezoned bound" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"atLeast\">\n" +
+    "    <xs:restriction base=\"xs:dateTime\">\n" +
+    "      <xs:minInclusive value=\"2026-01-01T00:00:00Z\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  // Clearly after the window.
+  assert_true(accepts(s, "atLeast", "2026-01-05T00:00:00"))
+  // Clearly before the window.
+  assert_false(accepts(s, "atLeast", "2025-12-31T00:00:00"))
+  // Inside the window: neither before nor after, so the facet cannot hold.
+  assert_false(accepts(s, "atLeast", "2026-01-01T00:00:00"))
+  // Same value with an explicit zone is comparable and equal.
+  assert_true(accepts(s, "atLeast", "2026-01-01T00:00:00Z"))
+  // The +01:00 form denotes the same instant, so the bound is satisfied.
+  assert_true(accepts(s, "atLeast", "2026-01-01T01:00:00+01:00"))
+  assert_false(accepts(s, "atLeast", "2025-12-31T23:59:59Z"))
+}
+
+///|
+/// A duration has no total order: `P1M` and `P30D` swap places depending on the
+/// reference date, so against a bound of `P30D` the answer for `P1M` is neither
+/// less nor equal. XSD treats an indeterminate comparison as false, so the value
+/// must be rejected rather than quietly ranked by its month count.
+test "durations are comparable only when every reference date agrees" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"atLeast30Days\">\n" +
+    "    <xs:restriction base=\"xs:duration\">\n" +
+    "      <xs:minInclusive value=\"P30D\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "atLeast30Days", "P30D"))
+  assert_true(accepts(s, "atLeast30Days", "P40D"))
+  assert_true(accepts(s, "atLeast30Days", "P1Y"))
+  assert_false(accepts(s, "atLeast30Days", "P10D"))
+  // A month is 28..31 days, so this one straddles the bound.
+  assert_false(accepts(s, "atLeast30Days", "P1M"))
+}

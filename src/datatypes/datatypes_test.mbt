@@ -421,7 +421,7 @@ test "temporal ordering respects timezones" {
     _ => abort("expected a temporal value")
   }
   // Both denote the same instant.
-  assert_eq(compare_temporal(a, b), 0)
+  assert_eq(compare_temporal(a, b), Some(0))
 }
 
 ///|
