@@ -92,6 +92,14 @@ binary32 舍入再宽化成 binary64。十进制到 binary64 的转换保留 17 
 > 这是把因果弄反了：`enumeration` 应该在**值空间**比较，而值空间里的 0.1 本来就是
 > 那个二进制近似值。已改为存机器浮点，并补了针对性测试。
 
+**NaN 是特殊情形。** 它与任何值都不构成有序关系，**包括它自己**。因此：
+
+- 四个边界 facet（`minInclusive`、`maxInclusive`、`minExclusive`、`maxExclusive`）
+  对 `NaN` **一律不成立**；
+- `enumeration value="NaN"` 永远不会匹配任何实例，连 `NaN` 本身也不匹配。
+
+实现上不能在比较里给 `NaN` 编一个"最大"的序号——那样单侧边界会放行它。
+
 ### 2.3 时间类型：字段，不是时间点
 
 `dateTime`、`date`、`time`、`gYear` 等类型的值是**日历字段的组合**，不是一个绝对时刻。
@@ -148,6 +156,12 @@ XSD 1.0 Part 2 §F 明确：
 - `QName`：按三元组比较；
 - `hexBinary`/`base64Binary`：按**字节**比较，`0F` 与 `0f` 相等；
 - 列表：各项分别映射后逐项比较。
+
+### 3.3 `union` 的 whiteSpace 固定为 collapse
+
+联合类型的空白规则由**类型本身**决定，固定为 collapse，与成员各自的规定无关。
+所以 `"  abc  "` 交给一个 `xs:string` 成员时，成员看到的是 `abc`。
+不折叠会让 `xs:string` 成员拿到带空白的原串，值也就跟着错了。
 
 ---
 
