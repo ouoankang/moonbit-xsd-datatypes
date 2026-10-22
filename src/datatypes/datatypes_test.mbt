@@ -456,3 +456,25 @@ test "builtin_local_name strips xs and xsd only" {
   assert_eq(builtin_local_name("date"), Some("date"))
   assert_eq(builtin_local_name("my:date"), None)
 }
+
+///|
+/// The value space of float and double is IEEE 754, so the parser has to land
+/// on the nearest representable value, not on the digits the author wrote.
+/// These compare against the same literals the compiler produces.
+test "float literals convert to the nearest binary64" {
+  assert_true(decimal_to_double("0.1") == 0.1)
+  assert_true(decimal_to_double("1.5") == 1.5)
+  assert_true(decimal_to_double("-2.25") == -2.25)
+  assert_true(decimal_to_double("1e10") == 1.0e10)
+  assert_true(decimal_to_double("1E-3") == 0.001)
+  assert_true(decimal_to_double("123.456") == 123.456)
+  // Both spellings denote the same double.
+  assert_true(
+    decimal_to_double("0.1") == decimal_to_double("0.1000000000000000055511151231257827"),
+  )
+  // Extremes saturate rather than wrapping.
+  assert_true(decimal_to_double("1e400").is_inf())
+  assert_true(decimal_to_double("1e-400") == 0.0)
+  assert_true(decimal_to_double("0") == 0.0)
+  assert_true(decimal_to_double("0.000").is_nan() || decimal_to_double("0.000") == 0.0)
+}

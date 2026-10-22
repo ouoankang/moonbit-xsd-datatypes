@@ -76,7 +76,9 @@ pub fn value_eq(a : XsdValue, b : XsdValue) -> Bool {
     (Dec(x), Dec(y)) => compare_decimal(x, y) == 0
     (Flt(x), Flt(y)) =>
       match (x, y) {
-        (Finite(dx), Finite(dy)) => compare_decimal(dx, dy) == 0
+        // IEEE equality: 0.0 and -0.0 are one value, and NaN equals nothing,
+        // itself included. Both are what the XSD value space says.
+        (Finite(dx), Finite(dy)) => dx == dy
         (PosInf, PosInf) => true
         (NegInf, NegInf) => true
         (NotANumber, NotANumber) => true
@@ -134,7 +136,14 @@ fn compare_floats(a : FloatValue, b : FloatValue) -> Int {
     return if ra < rb { -1 } else { 1 }
   }
   match (a, b) {
-    (Finite(x), Finite(y)) => compare_decimal(x, y)
+    (Finite(x), Finite(y)) =>
+      if x < y {
+        -1
+      } else if x > y {
+        1
+      } else {
+        0
+      }
     _ => 0
   }
 }
@@ -218,7 +227,11 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
     let text = raw
     let mut matched = false
     for p in f.patterns {
-      if xsd_pattern_search(p, text) {
+      // XSD implicitly anchors every pattern at head and tail, so this is a
+      // full-string match, not a search.  exists for
+      // callers that want the unanchored behaviour, but the facet must not
+      // use it: with a search, `A1` would satisfy `[A-Z]+`.
+      if xsd_pattern_full_match(p, text) {
         matched = true
         break
       }
@@ -332,7 +345,10 @@ pub fn lexical_text(v : XsdValue) -> String {
     Dec(d) => decimal_to_string(d)
     Flt(f) =>
       match f {
-        Finite(d) => decimal_to_string(d)
+        // Not the XSD canonical form (`1.0E0`); this is the shortest string
+        // that round-trips, which is what a reader wants to see. Canonical
+        // output would be a separate formatting concern.
+        Finite(d) => d.to_string()
         PosInf => "INF"
         NegInf => "-INF"
         NotANumber => "NaN"

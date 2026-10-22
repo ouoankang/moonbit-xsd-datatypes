@@ -66,11 +66,11 @@ test "maxLength and pattern both apply" {
   assert_true(accepts(s, "shortCode", "ABC"))
   assert_false(accepts(s, "shortCode", "ABCD"))
   assert_false(accepts(s, "shortCode", "abc"))
-  // `A1` is VALID: XSD's pattern is a search, not an anchor, so the single
-  // letter `A` satisfies `[A-Z]+`. Writing `[A-Z]+` expecting a whole-string
-  // match is the classic XSD mistake, and a validator that anchors here would
-  // be wrong.
-  assert_true(accepts(s, "shortCode", "A1"))
+  // XSD anchors patterns at head and tail: `[A-Z]+` has to match the whole
+  // string, so `A1` is rejected. This is the opposite of the Perl/ECMA default,
+  // and getting it backwards is easy -- an unanchored matcher accepts `A1` here.
+  // Unanchored behaviour has to be requested explicitly by writing `.*`.
+  assert_false(accepts(s, "shortCode", "A1"))
   // To reject, the value must contain no match at all.
   assert_false(accepts(s, "shortCode", "123"))
 }
@@ -161,4 +161,86 @@ test "pattern facet applies on its own" {
   }
   assert_true(passes("ABC"))
   assert_false(passes("abc"))
+}
+
+///|
+/// `double` lives in IEEE 754, so an enumeration written as `0.1` has to accept
+/// any spelling that denotes the same binary64 -- including the 17-digit one a
+/// printf produces. Comparing the written digits would reject that.
+test "double enumeration compares in the value space" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"tenth\">\n" +
+    "    <xs:restriction base=\"xs:double\">\n" +
+    "      <xs:enumeration value=\"0.1\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "tenth", "0.1"))
+  assert_true(accepts(s, "tenth", "0.1000000000000000055511151231257827"))
+  assert_true(accepts(s, "tenth", "1E-1"))
+  assert_true(accepts(s, "tenth", "1.0e-1"))
+  assert_false(accepts(s, "tenth", "0.2"))
+  assert_false(accepts(s, "tenth", "0.1000000000000001"))
+}
+
+///|
+/// `float` is binary32, so its value is not the same as the double with the
+/// same spelling. Rounding has to happen at parse time or `enumeration` and the
+/// ordering facets see the wrong number.
+test "float rounds through binary32" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"tenth\">\n" +
+    "    <xs:restriction base=\"xs:float\">\n" +
+    "      <xs:enumeration value=\"0.1\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  // 0.1 as a float widens to this double; as a double it would be 0.1.
+  assert_true(accepts(s, "tenth", "0.1"))
+  assert_true(accepts(s, "tenth", "0.10000000149011612"))
+  // Sixteen digits of the widened float are still the same binary32.
+  assert_true(accepts(s, "tenth", "0.1000000014901161"))
+  assert_false(accepts(s, "tenth", "0.2"))
+}
+
+///|
+/// XSD anchors every pattern at head and tail. Asking for an unanchored match
+/// has to be spelled out with `.*`, which is the opposite of the Perl default.
+test "pattern is anchored at head and tail" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"caps\">\n" +
+    "    <xs:restriction base=\"xs:string\">\n" +
+    "      <xs:pattern value=\"[A-Z]+\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "  <xs:simpleType name=\"containsCaps\">\n" +
+    "    <xs:restriction base=\"xs:string\">\n" +
+    "      <xs:pattern value=\".*[A-Z]+.*\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "caps", "ABC"))
+  // `A1` has a matching substring `A`, but the pattern must cover the whole
+  // lexical form, so this is invalid.
+  assert_false(accepts(s, "caps", "A1"))
+  assert_false(accepts(s, "caps", "1A"))
+  assert_false(accepts(s, "caps", "A1B2"))
+  // Unanchored matching is opt-in.
+  assert_true(accepts(s, "containsCaps", "A1"))
+  assert_true(accepts(s, "containsCaps", "1A"))
 }

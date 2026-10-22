@@ -77,12 +77,17 @@ pub struct QNameValue {
 ///|
 /// A `float` or `double` value.
 ///
-/// Finite values keep their digits as a `Decimal` rather than a machine float.
-/// Validation never does arithmetic, and keeping the decimal avoids the
-/// surprise where `0.1` round-trips to `0.1000000000000000055511151231257827`
-/// and then fails an `enumeration` facet it should have passed.
+/// A finite value is stored as the machine float that XSD's value space is
+/// defined over: IEEE 754 binary64 for `double`, binary32 widened to binary64
+/// for `float`.
+///
+/// Storing the digits instead would be wrong. `0.1` and
+/// `0.1000000000000000055511151231257827` denote the same double, so an
+/// `enumeration` written as the former has to accept the latter; comparing
+/// decimal strings would reject it. The rounding that makes them equal is
+/// exactly what the value space prescribes, so it has to happen at parse time.
 pub(all) enum FloatValue {
-  Finite(Decimal)
+  Finite(Double)
   PosInf
   NegInf
   NotANumber
