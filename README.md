@@ -4,7 +4,7 @@
 
 给定一个 XML Schema 简单类型和一个词法值，判定这个值是否合法，并给出值空间的规范化结果。
 
-> **状态：v0.1。** 44 个内置类型、12 个 facet、三种 variety、XSD 正则方言、
+> **状态：v0.1.1。** 44 个内置类型、12 个 facet、三种 variety、XSD 正则方言、
 > 文档解析都已落地；W3C 套件 974 个用例全部一致。不做内容模型，边界写在「已知限制」里。
 
 ---
@@ -53,7 +53,7 @@ OOXML / Office 12 个、XPath 2 个、格式化与工具 32 个。但描述里�
 
 ```bash
 moon check --deny-warn     # 零警告
-moon test                  # 59 个测试（58 单测 + 1 个 W3C 一致性）
+moon test                  # 68 个测试（67 单测 + 1 个 W3C 一致性）
 
 # 直接验证内置类型
 moon run --target js cmd/main -- dateTime 2026-02-30T00:00:00
@@ -123,7 +123,7 @@ INVALID  amount  1.234        =>  facet violation: fractionDigits 3 exceeds 2
 `pattern` 全串锚定（`A1` 不匹配 `[A-Z]+`）。另有一个跑 W3C 套件的测试。
 
 ```text
-Total tests: 59, passed: 59, failed: 0.
+Total tests: 68, passed: 68, failed: 0.
 w3c cases: 974/974 agreed, 0 schema errors
 ```
 
