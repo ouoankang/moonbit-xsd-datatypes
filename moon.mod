@@ -1,6 +1,6 @@
 name = "ouoankang/moonbit-xsd-datatypes"
 
-version = "0.1.1"
+version = "0.1.2"
 
 readme = "README.md"
 
@@ -19,7 +19,7 @@ keywords = [
 
 preferred_target = "wasm-gc"
 
-supported_targets = [ "wasm-gc", "js" ]
+supported_targets = [ "wasm", "wasm-gc", "js" ]
 
 description = "XSD 1.0 datatype validation for MoonBit: lexical-space parsing and facet checking for the built-in simple types."
 
