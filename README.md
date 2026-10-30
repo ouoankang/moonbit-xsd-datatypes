@@ -9,6 +9,16 @@
 
 ---
 
+## 安装
+
+```bash
+moon add ouoankang/moonbit-xsd-datatypes
+```
+
+已发布在 mooncakes：<https://mooncakes.io/docs/ouoankang/moonbit-xsd-datatypes>
+
+---
+
 ## 这个项目解决什么问题
 
 XML Schema 的验证分两件事：**结构**（元素能不能出现在这里、顺序对不对）和**值**
