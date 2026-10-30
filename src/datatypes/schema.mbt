@@ -16,6 +16,8 @@ pub struct Schema {
   elements : Map[String, SimpleType]
 } derive(Debug)
 
+pub extend Schema with @debug.Debug::{to_repr}
+
 ///|
 /// An empty schema.
 pub fn empty_schema() -> Schema {

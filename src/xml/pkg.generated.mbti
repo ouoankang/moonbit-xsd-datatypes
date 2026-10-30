@@ -26,11 +26,17 @@ pub struct QName {
   local_name : String
   prefix : String
 } derive(Eq, @debug.Debug)
+pub fn QName::equal(Self, Self) -> Bool
+pub fn QName::not_equal(Self, Self) -> Bool
+pub fn QName::to_repr(Self) -> @debug.Repr
 
 pub struct XmlAttr {
   name : QName
   value : String
 } derive(Eq, @debug.Debug)
+pub fn XmlAttr::equal(Self, Self) -> Bool
+pub fn XmlAttr::not_equal(Self, Self) -> Bool
+pub fn XmlAttr::to_repr(Self) -> @debug.Repr
 
 pub struct XmlElement {
   name : QName
@@ -38,6 +44,9 @@ pub struct XmlElement {
   children : Array[XmlNode]
   ns_decls : Array[(String, String)]
 } derive(Eq, @debug.Debug)
+pub fn XmlElement::equal(Self, Self) -> Bool
+pub fn XmlElement::not_equal(Self, Self) -> Bool
+pub fn XmlElement::to_repr(Self) -> @debug.Repr
 
 pub enum XmlError {
   UnexpectedEof
@@ -51,7 +60,10 @@ pub enum XmlError {
   MultipleRoots
   TextOutsideRoot
 } derive(Eq, @debug.Debug)
+pub fn XmlError::equal(Self, Self) -> Bool
+pub fn XmlError::not_equal(Self, Self) -> Bool
 pub fn XmlError::output(Self, &Logger) -> Unit
+pub fn XmlError::to_repr(Self) -> @debug.Repr
 pub fn XmlError::to_string(Self) -> String
 pub impl Show for XmlError
 
@@ -59,6 +71,9 @@ pub enum XmlNode {
   Element(XmlElement)
   Text(String)
 } derive(Eq, @debug.Debug)
+pub fn XmlNode::equal(Self, Self) -> Bool
+pub fn XmlNode::not_equal(Self, Self) -> Bool
+pub fn XmlNode::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

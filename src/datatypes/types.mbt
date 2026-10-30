@@ -20,6 +20,10 @@ pub struct Decimal {
   frac_part : String
 } derive(Debug, Eq)
 
+pub extend Decimal with @debug.Debug::{to_repr}
+
+pub extend Decimal with Eq::{not_equal, equal}
+
 ///|
 /// Which calendar-ish shape a temporal value has. The fields that are absent
 /// for a given kind are simply not displayed, but the struct carries them all
@@ -34,6 +38,9 @@ pub enum TemporalKind {
   GDay
   GMonth
 } derive(Debug, Eq)
+
+pub extend TemporalKind with @debug.Debug::{to_repr}
+pub extend TemporalKind with Eq::{not_equal, equal}
 
 ///|
 /// A parsed temporal value.
@@ -55,6 +62,9 @@ pub struct Temporal {
   year_negative : Bool
 } derive(Debug, Eq)
 
+pub extend Temporal with @debug.Debug::{to_repr}
+pub extend Temporal with Eq::{not_equal, equal}
+
 ///|
 /// A duration. XSD decomposes durations into a month part and a second part
 /// because the two never mix: a month is not a fixed number of seconds, so
@@ -65,6 +75,9 @@ pub struct Duration {
   seconds : Decimal
 } derive(Debug, Eq)
 
+pub extend Duration with @debug.Debug::{to_repr}
+pub extend Duration with Eq::{not_equal, equal}
+
 ///|
 /// A QName as it appears in a lexical form: an optional prefix plus a local
 /// name. Binding the prefix to a URI needs schema context that a bare lexical
@@ -73,6 +86,9 @@ pub struct QNameValue {
   prefix : String
   local_name : String
 } derive(Debug, Eq)
+
+pub extend QNameValue with @debug.Debug::{to_repr}
+pub extend QNameValue with Eq::{not_equal, equal}
 
 ///|
 /// A `float` or `double` value.
@@ -92,6 +108,9 @@ pub(all) enum FloatValue {
   NegInf
   NotANumber
 } derive(Debug, Eq)
+pub extend FloatValue with @debug.Debug::{to_repr}
+pub extend FloatValue with Eq::{not_equal, equal}
+
 
 ///|
 /// A `hexBinary` or `base64Binary` value.
@@ -103,6 +122,9 @@ pub struct Octets {
   canonical : String
   len_bytes : Int
 } derive(Debug, Eq)
+
+pub extend Octets with @debug.Debug::{to_repr}
+pub extend Octets with Eq::{not_equal, equal}
 
 ///|
 /// A value in the XSD value space.
@@ -119,6 +141,8 @@ pub(all) enum XsdValue {
   Not(String)
 } derive(Debug)
 
+pub extend XsdValue with @debug.Debug::{to_repr}
+
 ///|
 /// Why a lexical form or a facet check failed.
 pub(all) enum ValErr {
@@ -127,6 +151,10 @@ pub(all) enum ValErr {
   /// The value parsed but violated a facet.
   Facet(String)
 } derive(Debug, Eq)
+
+pub extend ValErr with @debug.Debug::{to_repr}
+pub extend ValErr with Eq::{not_equal, equal}
+pub extend ValErr with Show::{to_string, output}
 
 ///|
 pub impl Show for ValErr with fn to_string(self) {

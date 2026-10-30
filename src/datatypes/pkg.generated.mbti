@@ -121,18 +121,25 @@ pub struct CharClass {
   categories : Array[String]
   excluded : Array[(Int32, Int32)]
 } derive(@debug.Debug)
+pub fn CharClass::to_repr(Self) -> @debug.Repr
 
 pub struct Decimal {
   negative : Bool
   int_part : String
   frac_part : String
 } derive(Eq, @debug.Debug)
+pub fn Decimal::equal(Self, Self) -> Bool
+pub fn Decimal::not_equal(Self, Self) -> Bool
+pub fn Decimal::to_repr(Self) -> @debug.Repr
 
 pub struct Duration {
   negative : Bool
   months : Int32
   seconds : Decimal
 } derive(Eq, @debug.Debug)
+pub fn Duration::equal(Self, Self) -> Bool
+pub fn Duration::not_equal(Self, Self) -> Bool
+pub fn Duration::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Facets {
   length : Int32?
@@ -147,6 +154,7 @@ pub(all) struct Facets {
   total_digits : Int32?
   fraction_digits : Int32?
 } derive(@debug.Debug)
+pub fn Facets::to_repr(Self) -> @debug.Repr
 
 pub(all) enum FloatValue {
   Finite(Double)
@@ -154,16 +162,25 @@ pub(all) enum FloatValue {
   NegInf
   NotANumber
 } derive(Eq, @debug.Debug)
+pub fn FloatValue::equal(Self, Self) -> Bool
+pub fn FloatValue::not_equal(Self, Self) -> Bool
+pub fn FloatValue::to_repr(Self) -> @debug.Repr
 
 pub struct Octets {
   canonical : String
   len_bytes : Int32
 } derive(Eq, @debug.Debug)
+pub fn Octets::equal(Self, Self) -> Bool
+pub fn Octets::not_equal(Self, Self) -> Bool
+pub fn Octets::to_repr(Self) -> @debug.Repr
 
 pub struct QNameValue {
   prefix : String
   local_name : String
 } derive(Eq, @debug.Debug)
+pub fn QNameValue::equal(Self, Self) -> Bool
+pub fn QNameValue::not_equal(Self, Self) -> Bool
+pub fn QNameValue::to_repr(Self) -> @debug.Repr
 
 pub enum ReNode {
   Empty
@@ -174,6 +191,7 @@ pub enum ReNode {
   Alt(Array[ReNode])
   Repeat(ReNode, Int32, Int32)
 } derive(@debug.Debug)
+pub fn ReNode::to_repr(Self) -> @debug.Repr
 
 pub struct Schema {
   declared : Map[String, SimpleType]
@@ -181,12 +199,14 @@ pub struct Schema {
 } derive(@debug.Debug)
 pub fn Schema::element_type(Self, String) -> SimpleType?
 pub fn Schema::get(Self, String) -> SimpleType?
+pub fn Schema::to_repr(Self) -> @debug.Repr
 
 pub(all) enum SimpleType {
   Atomic(String, Facets)
   ListOf(String, Facets)
   UnionOf(Array[String], Facets)
 } derive(@debug.Debug)
+pub fn SimpleType::to_repr(Self) -> @debug.Repr
 
 pub struct Temporal {
   kind : TemporalKind
@@ -200,6 +220,9 @@ pub struct Temporal {
   tz : Int32?
   year_negative : Bool
 } derive(Eq, @debug.Debug)
+pub fn Temporal::equal(Self, Self) -> Bool
+pub fn Temporal::not_equal(Self, Self) -> Bool
+pub fn Temporal::to_repr(Self) -> @debug.Repr
 
 pub enum TemporalKind {
   DateTime
@@ -211,11 +234,19 @@ pub enum TemporalKind {
   GDay
   GMonth
 } derive(Eq, @debug.Debug)
+pub fn TemporalKind::equal(Self, Self) -> Bool
+pub fn TemporalKind::not_equal(Self, Self) -> Bool
+pub fn TemporalKind::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ValErr {
   Lexical(String)
   Facet(String)
 } derive(Eq, @debug.Debug)
+pub fn ValErr::equal(Self, Self) -> Bool
+pub fn ValErr::not_equal(Self, Self) -> Bool
+pub fn ValErr::output(Self, &Logger) -> Unit
+pub fn ValErr::to_repr(Self) -> @debug.Repr
+pub fn ValErr::to_string(Self) -> String
 pub impl Show for ValErr
 
 pub(all) enum XsdValue {
@@ -230,6 +261,7 @@ pub(all) enum XsdValue {
   Qn(QNameValue)
   Not(String)
 } derive(@debug.Debug)
+pub fn XsdValue::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 pub type ReResult = Result[ReNode, String]

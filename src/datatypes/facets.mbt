@@ -26,6 +26,8 @@ pub(all) struct Facets {
   total_digits : Int?
   fraction_digits : Int?
 } derive(Debug)
+pub extend Facets with @debug.Debug::{to_repr}
+
 
 ///|
 /// An empty facet set.

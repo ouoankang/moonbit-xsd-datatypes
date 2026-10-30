@@ -41,6 +41,8 @@ pub struct CharClass {
   excluded : Array[(Int, Int)]
 } derive(Debug)
 
+pub extend CharClass with @debug.Debug::{to_repr}
+
 ///|
 pub enum ReNode {
   Empty
@@ -51,6 +53,8 @@ pub enum ReNode {
   Alt(Array[ReNode])
   Repeat(ReNode, Int, Int)
 } derive(Debug)
+
+pub extend ReNode with @debug.Debug::{to_repr}
 
 ///|
 /// Bounds on repetition. `Repeat` uses -1 for "unbounded".

@@ -10,6 +10,8 @@ pub(all) enum SimpleType {
   ListOf(String, Facets)
   UnionOf(Array[String], Facets)
 } derive(Debug)
+pub extend SimpleType with @debug.Debug::{to_repr}
+
 
 ///|
 /// Builds an atomic type with no facets.

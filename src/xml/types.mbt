@@ -21,6 +21,9 @@ pub struct QName {
   prefix : String
 } derive(Debug, Eq)
 
+pub extend QName with @debug.Debug::{to_repr}
+pub extend QName with Eq::{not_equal, equal}
+
 ///|
 /// An attribute. Attributes never take the default namespace: an unprefixed
 /// attribute is in no namespace even when a default `xmlns` is in scope
@@ -30,12 +33,18 @@ pub struct XmlAttr {
   value : String
 } derive(Debug, Eq)
 
+pub extend XmlAttr with @debug.Debug::{to_repr}
+pub extend XmlAttr with Eq::{not_equal, equal}
+
 ///|
 /// A child node: either an element or a run of character data.
 pub enum XmlNode {
   Element(XmlElement)
   Text(String)
 } derive(Debug, Eq)
+
+pub extend XmlNode with @debug.Debug::{to_repr}
+pub extend XmlNode with Eq::{not_equal, equal}
 
 ///|
 /// An element with its namespace-resolved name, attributes, and children.
@@ -48,6 +57,9 @@ pub struct XmlElement {
   /// tooling that wants to re-serialize faithfully.
   ns_decls : Array[(String, String)]
 } derive(Debug, Eq)
+
+pub extend XmlElement with @debug.Debug::{to_repr}
+pub extend XmlElement with Eq::{not_equal, equal}
 
 ///|
 /// Why a document was rejected.
@@ -74,6 +86,9 @@ pub enum XmlError {
   /// Text appeared outside the root element.
   TextOutsideRoot
 } derive(Debug, Eq)
+
+pub extend XmlError with @debug.Debug::{to_repr}
+pub extend XmlError with Eq::{not_equal, equal}
 
 ///|
 /// The namespace bound to the prefix `xml`, always in scope without declaration.
