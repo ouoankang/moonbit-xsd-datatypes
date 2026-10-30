@@ -6,8 +6,8 @@
 // rather than an empty URI.
 
 ///|
-fn must_parse(src : String) -> XmlElement {
-  match parse_xml(src) {
+fn must_parse(src : String) -> @xml.XmlElement {
+  match @xml.parse_xml(src) {
     Ok(el) => el
     Err(e) => abort("expected a successful parse, got \{e}")
   }
@@ -35,8 +35,8 @@ test "default namespace does not apply to attributes" {
   // namespace even though a default xmlns is in scope.
   let el = must_parse("<root xmlns=\"urn:example\" id=\"7\"/>")
   assert_eq(el.name.uri, "urn:example")
-  assert_eq(attr_value(el, "", "id"), Some("7"))
-  assert_eq(attr_value(el, "urn:example", "id"), None)
+  assert_eq(@xml.attr_value(el, "", "id"), Some("7"))
+  assert_eq(@xml.attr_value(el, "urn:example", "id"), None)
 }
 
 ///|
@@ -66,16 +66,16 @@ test "inner declaration shadows the outer one" {
   let el = must_parse(
     "<a xmlns:p=\"urn:outer\"><b xmlns:p=\"urn:inner\"><p:c/></b><p:d/></a>",
   )
-  let b = match child_elements(el, "", "b") {
+  let b = match @xml.child_elements(el, "", "b") {
     [one] => one
     _ => abort("expected exactly one <b>")
   }
-  let c = match child_elements(b, "urn:inner", "c") {
+  let c = match @xml.child_elements(b, "urn:inner", "c") {
     [one] => one
     _ => abort("expected <p:c> to resolve into urn:inner")
   }
   assert_eq(c.name.uri, "urn:inner")
-  let d = match child_elements(el, "urn:outer", "d") {
+  let d = match @xml.child_elements(el, "urn:outer", "d") {
     [one] => one
     _ => abort("expected <p:d> to still resolve into urn:outer")
   }
@@ -84,7 +84,7 @@ test "inner declaration shadows the outer one" {
 
 ///|
 test "unbound prefix is rejected, not silently empty" {
-  match parse_xml("<p:a/>") {
+  match @xml.parse_xml("<p:a/>") {
     Ok(_) => abort("expected UnboundPrefix")
     Err(UnboundPrefix(p)) => assert_eq(p, "p")
     Err(e) => abort("expected UnboundPrefix, got \{e}")
@@ -93,7 +93,7 @@ test "unbound prefix is rejected, not silently empty" {
 
 ///|
 test "mismatched end tag is rejected" {
-  match parse_xml("<a></b>") {
+  match @xml.parse_xml("<a></b>") {
     Ok(_) => abort("expected MismatchedTag")
     Err(MismatchedTag(open_, close)) => {
       assert_eq(open_, "a")
@@ -134,15 +134,15 @@ test "character references decode, including astral code points" {
 ///|
 test "attribute values decode references and keep the quote char" {
   let el = must_parse("<a t=\"x &amp; y\" u='it&apos;s'/>")
-  assert_eq(attr_value(el, "", "t"), Some("x & y"))
-  assert_eq(attr_value(el, "", "u"), Some("it's"))
+  assert_eq(@xml.attr_value(el, "", "t"), Some("x & y"))
+  assert_eq(@xml.attr_value(el, "", "u"), Some("it's"))
 }
 
 ///|
 test "self-closing and nested children" {
   let el = must_parse("<a><b/><c><d/>text</c></a>")
-  assert_eq(child_elements(el, "", "b").length(), 1)
-  let c = match child_elements(el, "", "c") {
+  assert_eq(@xml.child_elements(el, "", "b").length(), 1)
+  let c = match @xml.child_elements(el, "", "c") {
     [one] => one
     _ => abort("expected one <c>")
   }
@@ -160,12 +160,12 @@ test "namespace declarations are recorded on the declaring element" {
 ///|
 test "the xml prefix is always in scope" {
   let el = must_parse("<a xml:lang=\"zh\"/>")
-  assert_eq(attr_value(el, xml_namespace_uri, "lang"), Some("zh"))
+  assert_eq(@xml.attr_value(el, @xml.xml_namespace_uri, "lang"), Some("zh"))
 }
 
 ///|
 test "doctype is refused rather than ignored" {
-  match parse_xml("<!DOCTYPE a><a/>") {
+  match @xml.parse_xml("<!DOCTYPE a><a/>") {
     Ok(_) => abort("expected Unsupported")
     Err(Unsupported(_)) => ()
     Err(e) => abort("expected Unsupported, got \{e}")
@@ -174,7 +174,7 @@ test "doctype is refused rather than ignored" {
 
 ///|
 test "duplicate roots are rejected" {
-  match parse_xml("<a/><b/>") {
+  match @xml.parse_xml("<a/><b/>") {
     Ok(_) => abort("expected MultipleRoots")
     Err(MultipleRoots) => ()
     Err(e) => abort("expected MultipleRoots, got \{e}")
@@ -184,9 +184,9 @@ test "duplicate roots are rejected" {
 ///|
 test "find_first searches depth-first" {
   let el = must_parse("<a xmlns:x=\"urn:x\"><b><x:target k=\"v\"/></b></a>")
-  let found = match find_first(el, "urn:x", "target") {
+  let found = match @xml.find_first(el, "urn:x", "target") {
     Some(t) => t
     None => abort("expected to find x:target")
   }
-  assert_eq(attr_value(found, "", "k"), Some("v"))
+  assert_eq(@xml.attr_value(found, "", "k"), Some("v"))
 }

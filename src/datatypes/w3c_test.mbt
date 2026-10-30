@@ -17,15 +17,15 @@ struct W3cRun {
 
 ///|
 fn run_w3c_cases() -> W3cRun {
-  let total = w3c_cases.length()
+  let total = @datatypes.w3c_cases.length()
   let mut agreed = 0
   let mut schema_errors = 0
   let mismatches : Array[(Int, Bool, Bool)] = Array(capacity=0)
   let schema_failures : Array[(Int, String)] = Array(capacity=0)
   let mut i = 0
-  for case in w3c_cases {
+  for case in @datatypes.w3c_cases {
     let (schema_src, element, value, expected) = case
-    match load_schema(schema_src) {
+    match @datatypes.load_schema(schema_src) {
       Err(e) => {
         schema_errors = schema_errors + 1
         if schema_failures.length() < 10 {
@@ -33,7 +33,7 @@ fn run_w3c_cases() -> W3cRun {
         }
       }
       Ok(schema) => {
-        let got = match validate_element(schema, element, value) {
+        let got = match @datatypes.validate_element(schema, element, value) {
           Ok(_) => true
           Err(_) => false
         }
@@ -57,14 +57,14 @@ test "w3c conformance slice" {
   )
   for m in r.mismatches {
     let (idx, expected, got) = m
-    let (_, element, value, _) = w3c_cases[idx]
+    let (_, element, value, _) = @datatypes.w3c_cases[idx]
     println(
       "  mismatch #\{idx}: element=\{element} value=\"\{value}\" expected=\{expected} got=\{got}",
     )
   }
   for f in r.schema_failures {
     let (idx, msg) = f
-    let (_, element, _, _) = w3c_cases[idx]
+    let (_, element, _, _) = @datatypes.w3c_cases[idx]
     println("  schema #\{idx} (\{element}): \{msg}")
   }
   // Every schema in the slice must parse: a failure there means the schema

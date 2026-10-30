@@ -35,16 +35,16 @@ fn sample_schema() -> String {
 }
 
 ///|
-fn schema() -> Schema {
-  match load_schema(sample_schema()) {
+fn schema() -> @datatypes.Schema {
+  match @datatypes.load_schema(sample_schema()) {
     Ok(s) => s
     Err(e) => abort("schema should load: \{e}")
   }
 }
 
 ///|
-fn accepts(s : Schema, name : String, value : String) -> Bool {
-  match validate_named(s, name, value) {
+fn accepts(s : @datatypes.Schema, name : String, value : String) -> Bool {
+  match @datatypes.validate_named(s, name, value) {
     Ok(_) => true
     Err(_) => false
   }
@@ -115,7 +115,7 @@ test "union accepts either member" {
 ///|
 test "unknown type name is rejected" {
   let s = schema()
-  match validate_named(s, "missing", "x") {
+  match @datatypes.validate_named(s, "missing", "x") {
     Ok(_) => abort("expected an error")
     Err(_) => ()
   }
@@ -123,7 +123,7 @@ test "unknown type name is rejected" {
 
 ///|
 test "a non-schema root is rejected" {
-  match load_schema("<a/>") {
+  match @datatypes.load_schema("<a/>") {
     Ok(_) => abort("expected an error")
     Err(_) => ()
   }
@@ -131,7 +131,7 @@ test "a non-schema root is rejected" {
 
 ///|
 test "malformed XML is rejected" {
-  match load_schema("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">") {
+  match @datatypes.load_schema("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">") {
     Ok(_) => abort("expected an error")
     Err(_) => ()
   }
@@ -139,7 +139,7 @@ test "malformed XML is rejected" {
 
 ///|
 test "pattern facet applies on its own" {
-  let f = Facets::{
+  let f = @datatypes.Facets::{
     length: None,
     min_length: None,
     max_length: None,
@@ -152,9 +152,9 @@ test "pattern facet applies on its own" {
     total_digits: None,
     fraction_digits: None,
   }
-  let t = make_atomic_with("string", f)
+  let t = @datatypes.make_atomic_with("string", f)
   let passes = fn(s : String) -> Bool {
-    match check_value(t, s) {
+    match @datatypes.check_value(t, s) {
       Ok(_) => true
       Err(_) => false
     }
@@ -176,7 +176,7 @@ test "double enumeration compares in the value space" {
     "    </xs:restriction>\n" +
     "  </xs:simpleType>\n" +
     "</xs:schema>"
-  let s = match load_schema(src) {
+  let s = match @datatypes.load_schema(src) {
     Ok(v) => v
     Err(_) => abort("schema did not parse")
   }
@@ -201,7 +201,7 @@ test "float rounds through binary32" {
     "    </xs:restriction>\n" +
     "  </xs:simpleType>\n" +
     "</xs:schema>"
-  let s = match load_schema(src) {
+  let s = match @datatypes.load_schema(src) {
     Ok(v) => v
     Err(_) => abort("schema did not parse")
   }
@@ -230,7 +230,7 @@ test "pattern is anchored at head and tail" {
     "    </xs:restriction>\n" +
     "  </xs:simpleType>\n" +
     "</xs:schema>"
-  let s = match load_schema(src) {
+  let s = match @datatypes.load_schema(src) {
     Ok(v) => v
     Err(_) => abort("schema did not parse")
   }
@@ -263,7 +263,7 @@ test "a restriction inherits the patterns of its base" {
     "    </xs:restriction>\n" +
     "  </xs:simpleType>\n" +
     "</xs:schema>"
-  let s = match load_schema(src) {
+  let s = match @datatypes.load_schema(src) {
     Ok(v) => v
     Err(_) => abort("schema did not parse")
   }
@@ -286,7 +286,7 @@ test "NaN cannot satisfy a one-sided bound" {
     "    </xs:restriction>\n" +
     "  </xs:simpleType>\n" +
     "</xs:schema>"
-  let s = match load_schema(src) {
+  let s = match @datatypes.load_schema(src) {
     Ok(v) => v
     Err(_) => abort("schema did not parse")
   }
@@ -305,11 +305,11 @@ test "a union collapses whitespace before its members see it" {
     "    <xs:union memberTypes=\"xs:string xs:int\"/>\n" +
     "  </xs:simpleType>\n" +
     "</xs:schema>"
-  let s = match load_schema(src) {
+  let s = match @datatypes.load_schema(src) {
     Ok(v) => v
     Err(_) => abort("schema did not parse")
   }
-  match validate_named(s, "strOrInt", "  abc  ") {
+  match @datatypes.validate_named(s, "strOrInt", "  abc  ") {
     Ok(Str(v)) => assert_eq(v, "abc")
     Ok(_) => abort("expected a string value")
     Err(_) => abort("value should be accepted")
@@ -330,7 +330,7 @@ test "a naive value is indeterminate against a timezoned bound" {
     "    </xs:restriction>\n" +
     "  </xs:simpleType>\n" +
     "</xs:schema>"
-  let s = match load_schema(src) {
+  let s = match @datatypes.load_schema(src) {
     Ok(v) => v
     Err(_) => abort("schema did not parse")
   }
@@ -361,7 +361,7 @@ test "durations are comparable only when every reference date agrees" {
     "    </xs:restriction>\n" +
     "  </xs:simpleType>\n" +
     "</xs:schema>"
-  let s = match load_schema(src) {
+  let s = match @datatypes.load_schema(src) {
     Ok(v) => v
     Err(_) => abort("schema did not parse")
   }

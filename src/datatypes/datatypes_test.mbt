@@ -7,22 +7,22 @@
 
 ///|
 fn ok(t : String, s : String) -> Bool {
-  is_valid_lexical(t, s)
+  @datatypes.is_valid_lexical(t, s)
 }
 
 ///|
 test "string preserves whitespace, normalizedString replaces it" {
   assert_true(ok("string", "  a  b  "))
-  let v = validate_builtin("string", "  a  b  ")
+  let v = @datatypes.validate_builtin("string", "  a  b  ")
   match v {
     Ok(Str(s)) => assert_eq(s, "  a  b  ")
     _ => abort("expected a string value")
   }
-  match validate_builtin("normalizedString", "a\tb") {
+  match @datatypes.validate_builtin("normalizedString", "a\tb") {
     Ok(Str(s)) => assert_eq(s, "a b")
     _ => abort("expected a string value")
   }
-  match validate_builtin("token", "  a   b  ") {
+  match @datatypes.validate_builtin("token", "  a   b  ") {
     Ok(Str(s)) => assert_eq(s, "a b")
     _ => abort("expected a string value")
   }
@@ -215,7 +215,7 @@ test "language tag shape" {
 
 ///|
 test "length facet counts code points" {
-  let f = Facets::{
+  let f = @datatypes.Facets::{
     length: Some(3),
     min_length: None,
     max_length: None,
@@ -228,15 +228,15 @@ test "length facet counts code points" {
     total_digits: None,
     fraction_digits: None,
   }
-  let t = make_atomic_with("string", f)
+  let t = @datatypes.make_atomic_with("string", f)
   assert_true(
-    match check_value(t, "abc") {
+    match @datatypes.check_value(t, "abc") {
       Ok(_) => true
       Err(_) => false
     },
   )
   assert_false(
-    match check_value(t, "abcd") {
+    match @datatypes.check_value(t, "abcd") {
       Ok(_) => true
       Err(_) => false
     },
@@ -245,22 +245,22 @@ test "length facet counts code points" {
 
 ///|
 test "minInclusive and maxExclusive on decimal" {
-  let f = Facets::{
+  let f = @datatypes.Facets::{
     length: None,
     min_length: None,
     max_length: None,
     patterns: Array(capacity=0),
     enumeration: Array(capacity=0),
     max_inclusive: None,
-    max_exclusive: Some(Dec(decimal_of(false, "10", ""))),
-    min_inclusive: Some(Dec(decimal_of(true, "1", ""))),
+    max_exclusive: Some(Dec(@datatypes.decimal_of(false, "10", ""))),
+    min_inclusive: Some(Dec(@datatypes.decimal_of(true, "1", ""))),
     min_exclusive: None,
     total_digits: None,
     fraction_digits: None,
   }
-  let t = make_atomic_with("decimal", f)
+  let t = @datatypes.make_atomic_with("decimal", f)
   let passes = fn(s : String) -> Bool {
-    match check_value(t, s) {
+    match @datatypes.check_value(t, s) {
       Ok(_) => true
       Err(_) => false
     }
@@ -273,7 +273,7 @@ test "minInclusive and maxExclusive on decimal" {
 
 ///|
 test "totalDigits and fractionDigits on decimal" {
-  let f = Facets::{
+  let f = @datatypes.Facets::{
     length: None,
     min_length: None,
     max_length: None,
@@ -286,9 +286,9 @@ test "totalDigits and fractionDigits on decimal" {
     total_digits: Some(3),
     fraction_digits: Some(1),
   }
-  let t = make_atomic_with("decimal", f)
+  let t = @datatypes.make_atomic_with("decimal", f)
   let passes = fn(s : String) -> Bool {
-    match check_value(t, s) {
+    match @datatypes.check_value(t, s) {
       Ok(_) => true
       Err(_) => false
     }
@@ -301,12 +301,12 @@ test "totalDigits and fractionDigits on decimal" {
 
 ///|
 test "enumeration compares values, not spellings" {
-  let f = Facets::{
+  let f = @datatypes.Facets::{
     length: None,
     min_length: None,
     max_length: None,
     patterns: Array(capacity=0),
-    enumeration: [Dec(decimal_of(false, "1", ""))],
+    enumeration: [Dec(@datatypes.decimal_of(false, "1", ""))],
     max_inclusive: None,
     max_exclusive: None,
     min_inclusive: None,
@@ -314,9 +314,9 @@ test "enumeration compares values, not spellings" {
     total_digits: None,
     fraction_digits: None,
   }
-  let t = make_atomic_with("decimal", f)
+  let t = @datatypes.make_atomic_with("decimal", f)
   let passes = fn(s : String) -> Bool {
-    match check_value(t, s) {
+    match @datatypes.check_value(t, s) {
       Ok(_) => true
       Err(_) => false
     }
@@ -332,36 +332,36 @@ test "enumeration compares values, not spellings" {
 test "pattern facet searches rather than anchors" {
   // XSD's pattern is a search: a value is valid if the expression matches
   // somewhere inside it.
-  assert_true(xsd_pattern_search("[0-9]+", "abc123def"))
-  assert_false(xsd_pattern_search("[0-9]+", "abcdef"))
+  assert_true(@datatypes.xsd_pattern_search("[0-9]+", "abc123def"))
+  assert_false(@datatypes.xsd_pattern_search("[0-9]+", "abcdef"))
   // Anchoring needs an explicit whole-string match.
-  assert_true(xsd_pattern_full_match("[0-9]+", "123"))
-  assert_false(xsd_pattern_full_match("[0-9]+", "abc123"))
+  assert_true(@datatypes.xsd_pattern_full_match("[0-9]+", "123"))
+  assert_false(@datatypes.xsd_pattern_full_match("[0-9]+", "abc123"))
 }
 
 ///|
 test "xsd regex basics" {
-  assert_true(xsd_pattern_full_match("a+", "aaa"))
-  assert_false(xsd_pattern_full_match("a+", ""))
-  assert_true(xsd_pattern_full_match("a?b", "b"))
-  assert_true(xsd_pattern_full_match("(ab|cd)+", "abcdab"))
-  assert_true(xsd_pattern_full_match("[a-z]{2,3}", "abc"))
-  assert_false(xsd_pattern_full_match("[a-z]{2,3}", "a"))
-  assert_true(xsd_pattern_full_match("\\d{4}-\\d{2}", "2026-10"))
-  assert_true(xsd_pattern_full_match("[^0-9]+", "abc"))
-  assert_true(xsd_pattern_full_match("a\\.b", "a.b"))
-  assert_false(xsd_pattern_full_match("a\\.b", "axb"))
+  assert_true(@datatypes.xsd_pattern_full_match("a+", "aaa"))
+  assert_false(@datatypes.xsd_pattern_full_match("a+", ""))
+  assert_true(@datatypes.xsd_pattern_full_match("a?b", "b"))
+  assert_true(@datatypes.xsd_pattern_full_match("(ab|cd)+", "abcdab"))
+  assert_true(@datatypes.xsd_pattern_full_match("[a-z]{2,3}", "abc"))
+  assert_false(@datatypes.xsd_pattern_full_match("[a-z]{2,3}", "a"))
+  assert_true(@datatypes.xsd_pattern_full_match("\\d{4}-\\d{2}", "2026-10"))
+  assert_true(@datatypes.xsd_pattern_full_match("[^0-9]+", "abc"))
+  assert_true(@datatypes.xsd_pattern_full_match("a\\.b", "a.b"))
+  assert_false(@datatypes.xsd_pattern_full_match("a\\.b", "axb"))
 }
 
 ///|
 test "xsd regex dot excludes line terminators" {
-  assert_true(xsd_pattern_full_match("a.c", "abc"))
-  assert_false(xsd_pattern_full_match("a.c", "a\nc"))
+  assert_true(@datatypes.xsd_pattern_full_match("a.c", "abc"))
+  assert_false(@datatypes.xsd_pattern_full_match("a.c", "a\nc"))
 }
 
 ///|
 test "list type counts items for length" {
-  let f = Facets::{
+  let f = @datatypes.Facets::{
     length: None,
     min_length: Some(2),
     max_length: Some(3),
@@ -374,9 +374,9 @@ test "list type counts items for length" {
     total_digits: None,
     fraction_digits: None,
   }
-  let t = make_list("NMTOKEN", f)
+  let t = @datatypes.make_list("NMTOKEN", f)
   let passes = fn(s : String) -> Bool {
-    match check_value(t, s) {
+    match @datatypes.check_value(t, s) {
       Ok(_) => true
       Err(_) => false
     }
@@ -389,21 +389,21 @@ test "list type counts items for length" {
 
 ///|
 test "union takes the first member that accepts" {
-  let t = make_union(["int", "date"], no_facets())
+  let t = @datatypes.make_union(["int", "date"], @datatypes.no_facets())
   assert_true(
-    match check_value(t, "42") {
+    match @datatypes.check_value(t, "42") {
       Ok(_) => true
       Err(_) => false
     },
   )
   assert_true(
-    match check_value(t, "2026-10-18") {
+    match @datatypes.check_value(t, "2026-10-18") {
       Ok(_) => true
       Err(_) => false
     },
   )
   assert_false(
-    match check_value(t, "2026-02-30") {
+    match @datatypes.check_value(t, "2026-02-30") {
       Ok(_) => true
       Err(_) => false
     },
@@ -412,49 +412,49 @@ test "union takes the first member that accepts" {
 
 ///|
 test "temporal ordering respects timezones" {
-  let a = match validate_builtin("dateTime", "2026-01-01T00:00:00Z") {
+  let a = match @datatypes.validate_builtin("dateTime", "2026-01-01T00:00:00Z") {
     Ok(Temporal(t)) => t
     _ => abort("expected a temporal value")
   }
-  let b = match validate_builtin("dateTime", "2026-01-01T08:00:00+08:00") {
+  let b = match @datatypes.validate_builtin("dateTime", "2026-01-01T08:00:00+08:00") {
     Ok(Temporal(t)) => t
     _ => abort("expected a temporal value")
   }
   // Both denote the same instant.
-  assert_eq(compare_temporal(a, b), Some(0))
+  assert_eq(@datatypes.compare_temporal(a, b), Some(0))
 }
 
 ///|
 test "decimal normalization collapses equivalent spellings" {
-  let a = match validate_builtin("decimal", "1.500") {
+  let a = match @datatypes.validate_builtin("decimal", "1.500") {
     Ok(Dec(d)) => d
     _ => abort("expected a decimal")
   }
-  let b = match validate_builtin("decimal", "1.5") {
+  let b = match @datatypes.validate_builtin("decimal", "1.5") {
     Ok(Dec(d)) => d
     _ => abort("expected a decimal")
   }
-  assert_eq(compare_decimal(a, b), 0)
-  assert_eq(decimal_to_string(a), "1.5")
-  assert_eq(total_digits(a), 2)
+  assert_eq(@datatypes.compare_decimal(a, b), 0)
+  assert_eq(@datatypes.decimal_to_string(a), "1.5")
+  assert_eq(@datatypes.total_digits(a), 2)
 }
 
 ///|
 test "negative zero is not negative" {
-  let d = match validate_builtin("decimal", "-0.000") {
+  let d = match @datatypes.validate_builtin("decimal", "-0.000") {
     Ok(Dec(d)) => d
     _ => abort("expected a decimal")
   }
   assert_false(d.negative)
-  assert_eq(decimal_to_string(d), "0")
+  assert_eq(@datatypes.decimal_to_string(d), "0")
 }
 
 ///|
 test "builtin_local_name strips xs and xsd only" {
-  assert_eq(builtin_local_name("xs:date"), Some("date"))
-  assert_eq(builtin_local_name("xsd:date"), Some("date"))
-  assert_eq(builtin_local_name("date"), Some("date"))
-  assert_eq(builtin_local_name("my:date"), None)
+  assert_eq(@datatypes.builtin_local_name("xs:date"), Some("date"))
+  assert_eq(@datatypes.builtin_local_name("xsd:date"), Some("date"))
+  assert_eq(@datatypes.builtin_local_name("date"), Some("date"))
+  assert_eq(@datatypes.builtin_local_name("my:date"), None)
 }
 
 ///|
@@ -462,19 +462,19 @@ test "builtin_local_name strips xs and xsd only" {
 /// on the nearest representable value, not on the digits the author wrote.
 /// These compare against the same literals the compiler produces.
 test "float literals convert to the nearest binary64" {
-  assert_true(decimal_to_double("0.1") == 0.1)
-  assert_true(decimal_to_double("1.5") == 1.5)
-  assert_true(decimal_to_double("-2.25") == -2.25)
-  assert_true(decimal_to_double("1e10") == 1.0e10)
-  assert_true(decimal_to_double("1E-3") == 0.001)
-  assert_true(decimal_to_double("123.456") == 123.456)
+  assert_true(@datatypes.decimal_to_double("0.1") == 0.1)
+  assert_true(@datatypes.decimal_to_double("1.5") == 1.5)
+  assert_true(@datatypes.decimal_to_double("-2.25") == -2.25)
+  assert_true(@datatypes.decimal_to_double("1e10") == 1.0e10)
+  assert_true(@datatypes.decimal_to_double("1E-3") == 0.001)
+  assert_true(@datatypes.decimal_to_double("123.456") == 123.456)
   // Both spellings denote the same double.
   assert_true(
-    decimal_to_double("0.1") == decimal_to_double("0.1000000000000000055511151231257827"),
+    @datatypes.decimal_to_double("0.1") == @datatypes.decimal_to_double("0.1000000000000000055511151231257827"),
   )
   // Extremes saturate rather than wrapping.
-  assert_true(decimal_to_double("1e400").is_inf())
-  assert_true(decimal_to_double("1e-400") == 0.0)
-  assert_true(decimal_to_double("0") == 0.0)
-  assert_true(decimal_to_double("0.000").is_nan() || decimal_to_double("0.000") == 0.0)
+  assert_true(@datatypes.decimal_to_double("1e400").is_inf())
+  assert_true(@datatypes.decimal_to_double("1e-400") == 0.0)
+  assert_true(@datatypes.decimal_to_double("0") == 0.0)
+  assert_true(@datatypes.decimal_to_double("0.000").is_nan() || @datatypes.decimal_to_double("0.000") == 0.0)
 }
