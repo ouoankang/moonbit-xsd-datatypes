@@ -218,7 +218,7 @@ W3C XML Schema Test Suite（NIST datatypes 贡献）中取 510 个
 ## 5. 已知偏差
 
 - **`\p{L}` 仍是近似**：按主要区间判断，未加载完整 UCD 表。（`\d` 已完整覆盖
-  Unicode 15.1 的 63 个 Nd 区间。）
+  Unicode 15.1 的 64 个 Nd 区间。）
 - **年份上限 9999**：更大的年份词法合法，但日历运算按 4 位年份处理。
 - **字符类减法**只支持一层。
 - **atomic `QName` / `NOTATION` 的 `length` 系列**：跳过（deprecated 且无定义），

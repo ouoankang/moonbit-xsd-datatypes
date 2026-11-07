@@ -484,6 +484,9 @@ test "backslash-d covers every Nd block" {
   assert_true(accepts(s, "d", "\u{0D67}\u{0D68}"))
   assert_true(accepts(s, "d", "\u{1D7DB}"))
   assert_true(accepts(s, "d", "\u{FF11}\u{FF12}"))
+  // Kawi, added in Unicode 15.0: U+11F50..U+11F59. It was the block the first
+  // complete list missed.
+  assert_true(accepts(s, "d", "\u{11F50}\u{11F51}"))
   // Roman numerals and superscripts are numbers, but not decimal digits.
   assert_false(accepts(s, "d", "\u{2163}"))
   assert_false(accepts(s, "d", "\u{00B2}"))

@@ -493,26 +493,42 @@ fn in_ranges(cp : Int32, ranges : Array[(Int32, Int32)]) -> Bool {
 }
 
 ///|
-/// XML NameStartChar, approximated.
+/// XML 1.0 `NameStartChar` (Appendix B), used by `\i` in the XSD regex dialect.
+///
+/// The ranges are the ones the production lists, not an over-approximation:
+/// `[#xC0-#xD6]` and `[#xD8-#xF6]` skip the multiplication and division signs,
+/// and the supplementary planes are included because XML allows them.
 fn is_xml_name_start(cp : Int32) -> Bool {
   cp == 58 ||
   cp == 95 ||
   (cp >= 65 && cp <= 90) ||
   (cp >= 97 && cp <= 122) ||
-  (cp >= 0xC0 && cp <= 0x2FF) ||
-  (cp >= 0x370 && cp <= 0x1FFF) ||
-  (cp >= 0x3001 && cp <= 0xD7FF)
+  (cp >= 0xC0 && cp <= 0xD6) ||
+  (cp >= 0xD8 && cp <= 0xF6) ||
+  (cp >= 0xF8 && cp <= 0x2FF) ||
+  (cp >= 0x370 && cp <= 0x37D) ||
+  (cp >= 0x37F && cp <= 0x1FFF) ||
+  (cp >= 0x200C && cp <= 0x200D) ||
+  (cp >= 0x2070 && cp <= 0x218F) ||
+  (cp >= 0x2C00 && cp <= 0x2FEF) ||
+  (cp >= 0x3001 && cp <= 0xD7FF) ||
+  (cp >= 0xF900 && cp <= 0xFDCF) ||
+  (cp >= 0xFDF0 && cp <= 0xFFFD) ||
+  (cp >= 0x10000 && cp <= 0xEFFFF)
 }
 
 ///|
-/// XML NameChar, approximated.
+/// XML 1.0 `NameChar`: everything `NameStartChar` allows, plus what the
+/// production adds on top (`-`, `.`, `[0-9]`, `#xB7`, the combining marks, and
+/// `[#x203F-#x2040]`).
 fn is_xml_name_char(cp : Int32) -> Bool {
   is_xml_name_start(cp) ||
   cp == 45 ||
   cp == 46 ||
   (cp >= 48 && cp <= 57) ||
   cp == 0xB7 ||
-  (cp >= 0x300 && cp <= 0x36F)
+  (cp >= 0x300 && cp <= 0x36F) ||
+  (cp >= 0x203F && cp <= 0x2040)
 }
 
 ///|
@@ -576,6 +592,7 @@ fn is_unicode_digit(cp : Int32) -> Bool {
   (cp >= 0x11C50 && cp <= 0x11C59) ||
   (cp >= 0x11D50 && cp <= 0x11D59) ||
   (cp >= 0x11DA0 && cp <= 0x11DA9) ||
+  (cp >= 0x11F50 && cp <= 0x11F59) ||
   (cp >= 0x16A60 && cp <= 0x16A69) ||
   (cp >= 0x16AC0 && cp <= 0x16AC9) ||
   (cp >= 0x16B50 && cp <= 0x16B59) ||

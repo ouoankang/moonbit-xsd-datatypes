@@ -376,6 +376,18 @@ test "xsd regex name classes and character class subtraction" {
   // The idiom the suite uses: name-start characters minus the colon.
   assert_true(@datatypes.xsd_pattern_full_match("[\\i-[:]]\\c{2}", "abc"))
   assert_false(@datatypes.xsd_pattern_full_match("[\\i-[:]]\\c{2}", ":bc"))
+
+  // \i is the whole XML 1.0 NameStartChar list, not just the BMP letters: the
+  // CJK compatibility area, the fullwidth forms, and the supplementary planes
+  // are all name starts.
+  assert_true(@datatypes.xsd_pattern_full_match("\\i", "\u{F900}"))
+  assert_true(@datatypes.xsd_pattern_full_match("\\i", "\u{FF21}"))
+  assert_true(@datatypes.xsd_pattern_full_match("\\i", "\u{20000}"))
+  // The multiplication sign sits in the gap the production leaves in C0-D6.
+  assert_false(@datatypes.xsd_pattern_full_match("\\i", "\u{00D7}"))
+  // UNDERTIE is a name character but not a name start.
+  assert_true(@datatypes.xsd_pattern_full_match("\\c", "\u{203F}"))
+  assert_false(@datatypes.xsd_pattern_full_match("\\i", "\u{203F}"))
 }
 
 ///|
