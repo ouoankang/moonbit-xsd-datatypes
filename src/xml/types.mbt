@@ -21,7 +21,10 @@ pub struct QName {
   prefix : String
 } derive(Debug, Eq)
 
+///|
 pub extend QName with @debug.Debug::{to_repr}
+
+///|
 pub extend QName with Eq::{not_equal, equal}
 
 ///|
@@ -33,7 +36,10 @@ pub struct XmlAttr {
   value : String
 } derive(Debug, Eq)
 
+///|
 pub extend XmlAttr with @debug.Debug::{to_repr}
+
+///|
 pub extend XmlAttr with Eq::{not_equal, equal}
 
 ///|
@@ -43,7 +49,10 @@ pub enum XmlNode {
   Text(String)
 } derive(Debug, Eq)
 
+///|
 pub extend XmlNode with @debug.Debug::{to_repr}
+
+///|
 pub extend XmlNode with Eq::{not_equal, equal}
 
 ///|
@@ -58,7 +67,10 @@ pub struct XmlElement {
   ns_decls : Array[(String, String)]
 } derive(Debug, Eq)
 
+///|
 pub extend XmlElement with @debug.Debug::{to_repr}
+
+///|
 pub extend XmlElement with Eq::{not_equal, equal}
 
 ///|
@@ -87,7 +99,10 @@ pub enum XmlError {
   TextOutsideRoot
 } derive(Debug, Eq)
 
+///|
 pub extend XmlError with @debug.Debug::{to_repr}
+
+///|
 pub extend XmlError with Eq::{not_equal, equal}
 
 ///|
@@ -105,7 +120,8 @@ pub impl Show for XmlError with fn to_string(self) {
     UnexpectedEof => "unexpected end of input"
     NotAnElement => "document does not start with an element"
     UnterminatedTag => "unterminated tag"
-    MismatchedTag(open_, close) => "mismatched tag: <\{open_}> closed by </\{close}>"
+    MismatchedTag(open_, close) =>
+      "mismatched tag: <\{open_}> closed by </\{close}>"
     UnboundPrefix(p) => "unbound namespace prefix: \{p}"
     BadCharRef(s) => "bad character reference: &\{s};"
     UnknownEntity(s) => "unknown entity: &\{s};"

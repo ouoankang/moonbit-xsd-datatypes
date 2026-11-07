@@ -6,7 +6,7 @@
 
 ///|
 /// Reads one UTF-16 code unit as an Int, or -1 past the end.
-fn code_at(s : String, i : Int) -> Int {
+fn code_at(s : String, i : Int32) -> Int32 {
   if i < 0 || i >= s.length() {
     -1
   } else {
@@ -15,7 +15,7 @@ fn code_at(s : String, i : Int) -> Int {
 }
 
 ///|
-fn is_digit(c : Int) -> Bool {
+fn is_digit(c : Int32) -> Bool {
   c >= 48 && c <= 57
 }
 
@@ -50,13 +50,13 @@ pub fn decimal_of(
   let i = strip_leading_zeros(if int_part.is_empty() { "0" } else { int_part })
   let f = strip_trailing_zeros(frac_part)
   let is_zero = i == "0" && f.is_empty()
-  { negative: negative && !is_zero, int_part: i, frac_part: f }
+  { negative: negative && !is_zero, int_part: i, frac_part: f, }
 }
 
 ///|
 /// A decimal zero.
 pub fn decimal_zero() -> Decimal {
-  { negative: false, int_part: "0", frac_part: "" }
+  { negative: false, int_part: "0", frac_part: "", }
 }
 
 ///|
@@ -135,7 +135,7 @@ pub fn is_integral(d : Decimal) -> Bool {
 
 ///|
 /// Ordering on the value space. Returns -1, 0, or 1.
-pub fn compare_decimal(a : Decimal, b : Decimal) -> Int {
+pub fn compare_decimal(a : Decimal, b : Decimal) -> Int32 {
   if a.negative != b.negative {
     return if a.negative { -1 } else { 1 }
   }
@@ -150,7 +150,7 @@ pub fn compare_decimal(a : Decimal, b : Decimal) -> Int {
 ///|
 /// Compares absolute values: integer part by length then digit, then the
 /// fractional part digit by digit with implicit trailing zeros.
-fn compare_magnitude(a : Decimal, b : Decimal) -> Int {
+fn compare_magnitude(a : Decimal, b : Decimal) -> Int32 {
   let il = a.int_part.length()
   let jl = b.int_part.length()
   if il != jl {
@@ -184,7 +184,7 @@ fn compare_magnitude(a : Decimal, b : Decimal) -> Int {
 /// Total digits in the normalized form. Leading and trailing zeros are already
 /// gone, so this is exactly the number of significant digits, which is what the
 /// `totalDigits` facet is defined against.
-pub fn total_digits(d : Decimal) -> Int {
+pub fn total_digits(d : Decimal) -> Int32 {
   // Leading zeros are not significant digits: 0.001 has one digit, not four.
   // The value zero itself counts as one digit, which is what the canonical
   // "0" carries.
@@ -194,12 +194,16 @@ pub fn total_digits(d : Decimal) -> Int {
     i = i + 1
   }
   let n = all.length() - i
-  if n == 0 { 1 } else { n }
+  if n == 0 {
+    1
+  } else {
+    n
+  }
 }
 
 ///|
 /// Number of fractional digits in the normalized form.
-pub fn fraction_digits(d : Decimal) -> Int {
+pub fn fraction_digits(d : Decimal) -> Int32 {
   d.frac_part.length()
 }
 
@@ -221,7 +225,7 @@ pub fn decimal_to_string(d : Decimal) -> String {
 ///|
 /// Number of magnitude bits, used to bound `float`/`double` conversions that
 /// need to know how large an integer is.
-pub fn integer_magnitude_bits(d : Decimal) -> Int {
+pub fn integer_magnitude_bits(d : Decimal) -> Int32 {
   if d.int_part == "0" {
     0
   } else {

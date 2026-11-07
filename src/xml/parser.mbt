@@ -6,25 +6,53 @@
 
 ///|
 /// UTF-16 code unit values of the ASCII characters used in dispatch.
-let cu_lt : Int = 60 // '<'
-let cu_gt : Int = 62 // '>'
-let cu_slash : Int = 47 // '/'
-let cu_eq : Int = 61 // '='
-let cu_quote : Int = 34 // '"'
-let cu_apos : Int = 39 // '\''
-let cu_bang : Int = 33 // '!'
-let cu_question : Int = 63 // '?'
-let cu_dash : Int = 45 // '-'
-let cu_bracket_l : Int = 91 // '['
-let cu_bracket_r : Int = 93 // ']'
-let cu_amp : Int = 38 // '&'
-let cu_semi : Int = 59 // ';'
-let cu_hash : Int = 35 // '#'
-let cu_colon : Int = 58 // ':'
+let cu_lt : Int32 = 60 // '<'
+
+///|
+let cu_gt : Int32 = 62 // '>'
+
+///|
+let cu_slash : Int32 = 47 // '/'
+
+///|
+let cu_eq : Int32 = 61 // '='
+
+///|
+let cu_quote : Int32 = 34 // '"'
+
+///|
+let cu_apos : Int32 = 39 // '\''
+
+///|
+let cu_bang : Int32 = 33 // '!'
+
+///|
+let cu_question : Int32 = 63 // '?'
+
+///|
+let cu_dash : Int32 = 45 // '-'
+
+///|
+let cu_bracket_l : Int32 = 91 // '['
+
+///|
+let cu_bracket_r : Int32 = 93 // ']'
+
+///|
+let cu_amp : Int32 = 38 // '&'
+
+///|
+let cu_semi : Int32 = 59 // ';'
+
+///|
+let cu_hash : Int32 = 35 // '#'
+
+///|
+let cu_colon : Int32 = 58 // ':'
 
 ///|
 /// Reads one UTF-16 code unit as an Int, or -1 past the end.
-fn cu_at(s : String, i : Int) -> Int {
+fn cu_at(s : String, i : Int32) -> Int32 {
   if i < 0 || i >= s.length() {
     -1
   } else {
@@ -40,18 +68,18 @@ fn cu_at(s : String, i : Int) -> Int {
 /// which is how inner declarations stop being visible to siblings.
 priv struct Reader {
   src : String
-  mut pos : Int
+  mut pos : Int32
   scope : Array[(String, String)]
 }
 
 ///|
 fn Reader::new(src : String) -> Reader {
   let scope : Array[(String, String)] = [("xml", xml_namespace_uri)]
-  { src, pos: 0, scope }
+  { src, pos: 0, scope, }
 }
 
 ///|
-fn Reader::len(self : Reader) -> Int {
+fn Reader::len(self : Reader) -> Int32 {
   self.src.length()
 }
 
@@ -61,7 +89,7 @@ fn Reader::eof(self : Reader) -> Bool {
 }
 
 ///|
-fn Reader::peek(self : Reader) -> Int {
+fn Reader::peek(self : Reader) -> Int32 {
   if self.eof() {
     -1
   } else {
@@ -70,7 +98,7 @@ fn Reader::peek(self : Reader) -> Int {
 }
 
 ///|
-fn Reader::peek_at(self : Reader, offset : Int) -> Int {
+fn Reader::peek_at(self : Reader, offset : Int32) -> Int32 {
   let i = self.pos + offset
   if i >= self.len() || i < 0 {
     -1
@@ -86,7 +114,7 @@ fn Reader::advance(self : Reader) -> Unit {
 
 ///|
 fn Reader::skip_ws(self : Reader) -> Unit {
-  while !(self.eof()) {
+  while !self.eof() {
     let c = self.peek()
     if c == 32 || c == 9 || c == 10 || c == 13 {
       self.advance()
@@ -97,12 +125,16 @@ fn Reader::skip_ws(self : Reader) -> Unit {
 }
 
 ///|
-fn is_name_start(c : Int) -> Bool {
-  (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95 || c == cu_colon || c >= 0xC0
+fn is_name_start(c : Int32) -> Bool {
+  (c >= 65 && c <= 90) ||
+  (c >= 97 && c <= 122) ||
+  c == 95 ||
+  c == cu_colon ||
+  c >= 0xC0
 }
 
 ///|
-fn is_name_char(c : Int) -> Bool {
+fn is_name_char(c : Int32) -> Bool {
   is_name_start(c) ||
   (c >= 48 && c <= 57) ||
   c == cu_dash ||
@@ -113,7 +145,7 @@ fn is_name_char(c : Int) -> Bool {
 ///|
 fn Reader::read_name(self : Reader) -> String {
   let start = self.pos
-  while !(self.eof()) && is_name_char(self.peek()) {
+  while !self.eof() && is_name_char(self.peek()) {
     self.advance()
   }
   self.src[start:self.pos].to_owned()
@@ -166,16 +198,16 @@ fn Reader::make_qname(
   let (prefix, local_name) = split_qname(raw)
   if prefix.is_empty() {
     if is_attribute {
-      return Ok({ uri: "", local_name, prefix })
+      return Ok({ uri: "", local_name, prefix, })
     }
     let dflt = match self.resolve_prefix("") {
       Some(uri) => uri
       None => ""
     }
-    return Ok({ uri: dflt, local_name, prefix })
+    return Ok({ uri: dflt, local_name, prefix, })
   }
   match self.resolve_prefix(prefix) {
-    Some(uri) => Ok({ uri, local_name, prefix })
+    Some(uri) => Ok({ uri, local_name, prefix, })
     None => Err(UnboundPrefix(prefix))
   }
 }
@@ -183,7 +215,7 @@ fn Reader::make_qname(
 ///|
 /// Decodes character and entity references in character data.
 fn decode_refs(raw : String) -> Result[String, XmlError] {
-  if !(raw.contains("&")) {
+  if !raw.contains("&") {
     return Ok(raw)
   }
   let out : Array[String] = []
@@ -283,16 +315,16 @@ fn decode_one_ref(body : String) -> Result[String, XmlError] {
 ///|
 /// Encodes a code point as UTF-16 text, splitting astral code points into a
 /// surrogate pair.
-fn code_point_to_string(cp : Int) -> String {
+fn code_point_to_string(cp : Int32) -> String {
   if cp <= 0xFFFF {
-    return Int::unsafe_to_char(cp).to_string()
+    return Int32::unsafe_to_char(cp).to_string()
   }
   let v = cp - 0x10000
   let hi = 0xD800 + (v >> 10)
   let lo = 0xDC00 + (v & 0x3FF)
   let buf = StringBuilder()
-  buf.write_char(Int::unsafe_to_char(hi))
-  buf.write_char(Int::unsafe_to_char(lo))
+  buf.write_char(Int32::unsafe_to_char(hi))
+  buf.write_char(Int32::unsafe_to_char(lo))
   buf.to_string()
 }
 
@@ -329,8 +361,10 @@ fn Reader::skip_misc(self : Reader) -> Result[Unit, XmlError] {
 ///|
 fn Reader::skip_comment(self : Reader) -> Result[Unit, XmlError] {
   self.pos = self.pos + 4 // <!--
-  while !(self.eof()) {
-    if self.peek() == cu_dash && self.peek_at(1) == cu_dash && self.peek_at(2) == cu_gt {
+  while !self.eof() {
+    if self.peek() == cu_dash &&
+      self.peek_at(1) == cu_dash &&
+      self.peek_at(2) == cu_gt {
       self.pos = self.pos + 3
       return Ok(())
     }
@@ -342,7 +376,7 @@ fn Reader::skip_comment(self : Reader) -> Result[Unit, XmlError] {
 ///|
 fn Reader::skip_pi(self : Reader) -> Result[Unit, XmlError] {
   self.pos = self.pos + 2 // <?
-  while !(self.eof()) {
+  while !self.eof() {
     if self.peek() == cu_question && self.peek_at(1) == cu_gt {
       self.pos = self.pos + 2
       return Ok(())
@@ -390,7 +424,7 @@ fn Reader::parse_element(self : Reader) -> Result[XmlElement, XmlError] {
     }
     self.advance()
     let vstart = self.pos
-    while !(self.eof()) && self.peek() != q {
+    while !self.eof() && self.peek() != q {
       self.advance()
     }
     if self.eof() {
@@ -414,7 +448,7 @@ fn Reader::parse_element(self : Reader) -> Result[XmlElement, XmlError] {
         Ok(n) => n
         Err(e) => return Err(e)
       }
-      attrs.push({ name, value: decoded })
+      attrs.push({ name, value: decoded, })
     }
   }
   let name = match self.make_qname(raw_name, false) {
@@ -428,7 +462,7 @@ fn Reader::parse_element(self : Reader) -> Result[XmlElement, XmlError] {
     }
     self.advance()
     self.scope.resize(scope_mark, ("", ""))
-    return Ok({ name, attributes: attrs, children: [], ns_decls })
+    return Ok({ name, attributes: attrs, children: [], ns_decls, })
   }
   if self.peek() != cu_gt {
     return Err(UnterminatedTag)
@@ -439,12 +473,15 @@ fn Reader::parse_element(self : Reader) -> Result[XmlElement, XmlError] {
     Err(e) => return Err(e)
   }
   self.scope.resize(scope_mark, ("", ""))
-  Ok({ name, attributes: attrs, children, ns_decls })
+  Ok({ name, attributes: attrs, children, ns_decls, })
 }
 
 ///|
 /// Parses everything up to and including the matching end tag.
-fn Reader::parse_children(self : Reader, parent_raw : String) -> Result[Array[XmlNode], XmlError] {
+fn Reader::parse_children(
+  self : Reader,
+  parent_raw : String,
+) -> Result[Array[XmlNode], XmlError] {
   let out : Array[XmlNode] = []
   let mut text_start = self.pos
   while true {
@@ -519,7 +556,7 @@ fn Reader::read_end_tag(self : Reader) -> Result[String, XmlError] {
 fn Reader::read_cdata(self : Reader) -> Result[String, XmlError] {
   self.pos = self.pos + 9 // <![CDATA[
   let start = self.pos
-  while !(self.eof()) {
+  while !self.eof() {
     if self.peek() == cu_bracket_r &&
       self.peek_at(1) == cu_bracket_r &&
       self.peek_at(2) == cu_gt {
@@ -552,7 +589,7 @@ pub fn parse_xml(src : String) -> Result[XmlElement, XmlError] {
     Ok(_) => ()
     Err(e) => return Err(e)
   }
-  if !(r.eof()) {
+  if !r.eof() {
     if r.peek() == cu_lt {
       return Err(MultipleRoots)
     }
@@ -564,7 +601,11 @@ pub fn parse_xml(src : String) -> Result[XmlElement, XmlError] {
 ///|
 /// Finds the first descendant element whose expanded name matches. A tiny
 /// convenience used by the conformance driver and the CLI.
-pub fn find_first(el : XmlElement, uri : String, local_name : String) -> XmlElement? {
+pub fn find_first(
+  el : XmlElement,
+  uri : String,
+  local_name : String,
+) -> XmlElement? {
   if el.name.uri == uri && el.name.local_name == local_name {
     return Some(el)
   }
@@ -583,7 +624,11 @@ pub fn find_first(el : XmlElement, uri : String, local_name : String) -> XmlElem
 
 ///|
 /// All direct child elements with the given expanded name.
-pub fn child_elements(el : XmlElement, uri : String, local_name : String) -> Array[XmlElement] {
+pub fn child_elements(
+  el : XmlElement,
+  uri : String,
+  local_name : String,
+) -> Array[XmlElement] {
   let out : Array[XmlElement] = []
   for node in el.children {
     match node {
@@ -599,7 +644,11 @@ pub fn child_elements(el : XmlElement, uri : String, local_name : String) -> Arr
 
 ///|
 /// Attribute value by expanded name.
-pub fn attr_value(el : XmlElement, uri : String, local_name : String) -> String? {
+pub fn attr_value(
+  el : XmlElement,
+  uri : String,
+  local_name : String,
+) -> String? {
   for a in el.attributes {
     if a.name.uri == uri && a.name.local_name == local_name {
       return Some(a.value)

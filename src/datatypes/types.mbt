@@ -20,8 +20,10 @@ pub struct Decimal {
   frac_part : String
 } derive(Debug, Eq)
 
+///|
 pub extend Decimal with @debug.Debug::{to_repr}
 
+///|
 pub extend Decimal with Eq::{not_equal, equal}
 
 ///|
@@ -39,7 +41,10 @@ pub enum TemporalKind {
   GMonth
 } derive(Debug, Eq)
 
+///|
 pub extend TemporalKind with @debug.Debug::{to_repr}
+
+///|
 pub extend TemporalKind with Eq::{not_equal, equal}
 
 ///|
@@ -50,19 +55,22 @@ pub extend TemporalKind with Eq::{not_equal, equal}
 /// seconds field, without trailing zeros.
 pub struct Temporal {
   kind : TemporalKind
-  year : Int
-  month : Int
-  day : Int
-  hour : Int
-  minute : Int
-  second : Int
+  year : Int32
+  month : Int32
+  day : Int32
+  hour : Int32
+  minute : Int32
+  second : Int32
   frac_part : String
-  tz : Int?
+  tz : Int32?
   /// Set when the lexical form carried a negative year (`-0044`).
   year_negative : Bool
 } derive(Debug, Eq)
 
+///|
 pub extend Temporal with @debug.Debug::{to_repr}
+
+///|
 pub extend Temporal with Eq::{not_equal, equal}
 
 ///|
@@ -78,7 +86,10 @@ pub struct Duration {
   seconds : Decimal
 } derive(Debug, Eq)
 
+///|
 pub extend Duration with @debug.Debug::{to_repr}
+
+///|
 pub extend Duration with Eq::{not_equal, equal}
 
 ///|
@@ -90,7 +101,10 @@ pub struct QNameValue {
   local_name : String
 } derive(Debug, Eq)
 
+///|
 pub extend QNameValue with @debug.Debug::{to_repr}
+
+///|
 pub extend QNameValue with Eq::{not_equal, equal}
 
 ///|
@@ -111,9 +125,12 @@ pub(all) enum FloatValue {
   NegInf
   NotANumber
 } derive(Debug, Eq)
-pub extend FloatValue with @debug.Debug::{to_repr}
-pub extend FloatValue with Eq::{not_equal, equal}
 
+///|
+pub extend FloatValue with @debug.Debug::{to_repr}
+
+///|
+pub extend FloatValue with Eq::{not_equal, equal}
 
 ///|
 /// A `hexBinary` or `base64Binary` value.
@@ -123,10 +140,13 @@ pub extend FloatValue with Eq::{not_equal, equal}
 /// same octets compare equal. `len_bytes` is what the `length` facet measures.
 pub struct Octets {
   canonical : String
-  len_bytes : Int
+  len_bytes : Int32
 } derive(Debug, Eq)
 
+///|
 pub extend Octets with @debug.Debug::{to_repr}
+
+///|
 pub extend Octets with Eq::{not_equal, equal}
 
 ///|
@@ -144,6 +164,7 @@ pub(all) enum XsdValue {
   Not(String)
 } derive(Debug)
 
+///|
 pub extend XsdValue with @debug.Debug::{to_repr}
 
 ///|
@@ -155,8 +176,13 @@ pub(all) enum ValErr {
   Facet(String)
 } derive(Debug, Eq)
 
+///|
 pub extend ValErr with @debug.Debug::{to_repr}
+
+///|
 pub extend ValErr with Eq::{not_equal, equal}
+
+///|
 pub extend ValErr with Show::{to_string, output}
 
 ///|

@@ -6,7 +6,7 @@
 // it.
 
 ///|
-fn code_at_dt(s : String, i : Int) -> Int {
+fn code_at_dt(s : String, i : Int32) -> Int32 {
   if i < 0 || i >= s.length() {
     -1
   } else {
@@ -15,17 +15,17 @@ fn code_at_dt(s : String, i : Int) -> Int {
 }
 
 ///|
-fn is_digit_dt(c : Int) -> Bool {
+fn is_digit_dt(c : Int32) -> Bool {
   c >= 48 && c <= 57
 }
 
 ///|
-fn is_leap(year : Int) -> Bool {
+fn is_leap(year : Int32) -> Bool {
   (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 ///|
-fn days_in_month(year : Int, month : Int) -> Int {
+fn days_in_month(year : Int32, month : Int32) -> Int32 {
   match month {
     1 => 31
     2 => if is_leap(year) { 29 } else { 28 }
@@ -47,11 +47,11 @@ fn days_in_month(year : Int, month : Int) -> Int {
 /// A cursor over the lexical form, so each field reader can advance it.
 priv struct DtCursor {
   src : String
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
-fn DtCursor::peek(self : DtCursor) -> Int {
+fn DtCursor::peek(self : DtCursor) -> Int32 {
   code_at_dt(self.src, self.pos)
 }
 
@@ -61,7 +61,7 @@ fn DtCursor::eof(self : DtCursor) -> Bool {
 }
 
 ///|
-fn DtCursor::eat(self : DtCursor, c : Int) -> Bool {
+fn DtCursor::eat(self : DtCursor, c : Int32) -> Bool {
   if self.peek() == c {
     self.pos = self.pos + 1
     true
@@ -73,7 +73,7 @@ fn DtCursor::eat(self : DtCursor, c : Int) -> Bool {
 ///|
 /// Reads exactly `n` digits as an Int. Returns None when fewer than `n` digits
 /// are present or any of them is not a digit.
-fn DtCursor::digits(self : DtCursor, n : Int) -> Int? {
+fn DtCursor::digits(self : DtCursor, n : Int32) -> Int32? {
   let start = self.pos
   let mut i = 0
   let mut value = 0
@@ -92,7 +92,7 @@ fn DtCursor::digits(self : DtCursor, n : Int) -> Int? {
 
 ///|
 /// Reads one or more digits with no upper bound on the count.
-fn DtCursor::many_digits(self : DtCursor) -> Int? {
+fn DtCursor::many_digits(self : DtCursor) -> Int32? {
   let start = self.pos
   let mut value = 0
   while is_digit_dt(self.peek()) {
@@ -107,10 +107,46 @@ fn DtCursor::many_digits(self : DtCursor) -> Int? {
 }
 
 ///|
+/// Reads the year field and applies the rules XSD 1.0 puts on it.
+///
+/// Two of those rules are about the value space, not the shape of the numeral,
+/// so a purely numeric check misses them:
+///
+/// - There is no year 0. `0001` is 1 CE and `-0001` is 1 BCE, so `0000` does
+///   not denote anything and is not a valid lexical form (Part 2 §3.2.7).
+///   XSD 1.1 changed this; this implementation targets 1.0.
+/// - Past four digits the numeral must not carry leading zeros, which rules out
+///   `01234` while leaving `12345` legal.
+///
+/// The 9999 ceiling is this implementation's own limit, not the specification's:
+/// larger years are legal, but the calendar arithmetic here works on four-digit
+/// years. It is listed under "known limitations" in the README.
+fn DtCursor::year_field(
+  self : DtCursor,
+  what : String,
+) -> Result[Int32, ValErr] {
+  let start = self.pos
+  let value = match self.many_digits() {
+    Some(v) => v
+    None => return Err(Lexical("\{what} needs a year"))
+  }
+  if value == 0 {
+    return Err(Lexical("0000 is not a valid year: -0001 denotes 1 BCE"))
+  }
+  if self.pos - start > 4 && code_at_dt(self.src, start) == 48 {
+    return Err(Lexical("a year past four digits must not carry leading zeros"))
+  }
+  if value > 9999 {
+    return Err(Lexical("year beyond 9999 is not supported"))
+  }
+  Ok(value)
+}
+
+///|
 /// Parses the optional timezone: `Z`, `+hh:mm`, or `-hh:mm`. Returns the offset
 /// in minutes. Absence yields None rather than Some(0), because "no timezone"
 /// and "UTC" are different values in XSD.
-fn DtCursor::timezone(self : DtCursor) -> Result[Int?, ValErr] {
+fn DtCursor::timezone(self : DtCursor) -> Result[Int32?, ValErr] {
   if self.eat(90) {
     // 'Z'
     return Ok(Some(0))
@@ -148,7 +184,7 @@ fn DtCursor::timezone(self : DtCursor) -> Result[Int?, ValErr] {
 /// Parses `hh:mm:ss` with an optional fractional second.
 fn DtCursor::time_fields(
   self : DtCursor,
-) -> Result[(Int, Int, Int, String), ValErr] {
+) -> Result[(Int32, Int32, Int32, String), ValErr] {
   let hh = match self.digits(2) {
     Some(v) => v
     None => return Err(Lexical("hour must be two digits"))
@@ -190,9 +226,9 @@ fn DtCursor::time_fields(
 ///|
 /// Range checks that apply once the fields are separated.
 fn check_time_range(
-  hh : Int,
-  mi : Int,
-  ss : Int,
+  hh : Int32,
+  mi : Int32,
+  ss : Int32,
   frac : String,
 ) -> Result[Unit, ValErr] {
   if hh > 24 {
@@ -216,17 +252,14 @@ fn check_time_range(
 ///|
 /// Parses a `dateTime`.
 pub fn parse_date_time(s : String) -> Result[Temporal, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   let mut year_negative = false
   if c.eat(45) {
     year_negative = true
   }
-  let year = match c.many_digits() {
-    Some(v) => v
-    None => return Err(Lexical("dateTime needs a year"))
-  }
-  if year > 9999 {
-    return Err(Lexical("year beyond 9999 is not supported"))
+  let year = match c.year_field("dateTime") {
+    Ok(v) => v
+    Err(e) => return Err(e)
   }
   if !c.eat(45) {
     return Err(Lexical("dateTime needs YYYY-MM-DD"))
@@ -284,17 +317,14 @@ pub fn parse_date_time(s : String) -> Result[Temporal, ValErr] {
 ///|
 /// Parses a `date`.
 pub fn parse_date(s : String) -> Result[Temporal, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   let mut year_negative = false
   if c.eat(45) {
     year_negative = true
   }
-  let year = match c.many_digits() {
-    Some(v) => v
-    None => return Err(Lexical("date needs a year"))
-  }
-  if year > 9999 {
-    return Err(Lexical("year beyond 9999 is not supported"))
+  let year = match c.year_field("date") {
+    Ok(v) => v
+    Err(e) => return Err(e)
   }
   if !c.eat(45) {
     return Err(Lexical("date needs YYYY-MM-DD"))
@@ -340,7 +370,7 @@ pub fn parse_date(s : String) -> Result[Temporal, ValErr] {
 ///|
 /// Parses a `time`.
 pub fn parse_time(s : String) -> Result[Temporal, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   let (hh, mi, ss, frac) = match c.time_fields() {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -383,14 +413,14 @@ fn DtCursor::leading_dashes(self : DtCursor) -> Result[Unit, ValErr] {
 ///|
 /// Parses `gYearMonth` (`YYYY-MM`).
 pub fn parse_g_year_month(s : String) -> Result[Temporal, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   let mut year_negative = false
   if c.eat(45) {
     year_negative = true
   }
-  let year = match c.many_digits() {
-    Some(v) => v
-    None => return Err(Lexical("gYearMonth needs a year"))
+  let year = match c.year_field("gYearMonth") {
+    Ok(v) => v
+    Err(e) => return Err(e)
   }
   if !c.eat(45) {
     return Err(Lexical("gYearMonth needs YYYY-MM"))
@@ -426,14 +456,14 @@ pub fn parse_g_year_month(s : String) -> Result[Temporal, ValErr] {
 ///|
 /// Parses `gYear` (`YYYY`).
 pub fn parse_g_year(s : String) -> Result[Temporal, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   let mut year_negative = false
   if c.eat(45) {
     year_negative = true
   }
-  let year = match c.many_digits() {
-    Some(v) => v
-    None => return Err(Lexical("gYear needs a year"))
+  let year = match c.year_field("gYear") {
+    Ok(v) => v
+    Err(e) => return Err(e)
   }
   let tz = match c.timezone() {
     Ok(v) => v
@@ -459,7 +489,7 @@ pub fn parse_g_year(s : String) -> Result[Temporal, ValErr] {
 ///|
 /// Parses `gMonthDay` (`--MM-DD`).
 pub fn parse_g_month_day(s : String) -> Result[Temporal, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   match c.leading_dashes() {
     Ok(_) => ()
     Err(e) => return Err(e)
@@ -506,7 +536,7 @@ pub fn parse_g_month_day(s : String) -> Result[Temporal, ValErr] {
 ///|
 /// Parses `gDay` (`---DD`).
 pub fn parse_g_day(s : String) -> Result[Temporal, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   match c.leading_dashes() {
     Ok(_) => ()
     Err(e) => return Err(e)
@@ -545,7 +575,7 @@ pub fn parse_g_day(s : String) -> Result[Temporal, ValErr] {
 ///|
 /// Parses `gMonth` (`--MM` or `--MM--`).
 pub fn parse_g_month(s : String) -> Result[Temporal, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   match c.leading_dashes() {
     Ok(_) => ()
     Err(e) => return Err(e)
@@ -554,10 +584,17 @@ pub fn parse_g_month(s : String) -> Result[Temporal, ValErr] {
     Some(v) => v
     None => return Err(Lexical("gMonth needs MM"))
   }
-  // XSD 1.0 spells gMonth as `--MM--`. Accept the bare form too; it is what
-  // XSD 1.1 allows and what people actually write.
-  if c.eat(45) && !c.eat(45) {
-    return Err(Lexical("gMonth trailing '--' must be complete"))
+  // XSD 1.0's first edition printed gMonth as `--MM--`. Erratum E2-12 corrected
+  // it to `--MM` and says "No other formats are allowed", so the trailing pair
+  // is not a spelling this validator may accept: `--12--` is invalid, `--12`
+  // is valid. A `-hh:mm` offset still starts with one dash, which is why this
+  // looks one character ahead instead of rejecting any trailing dash.
+  if c.peek() == 45 && code_at_dt(s, c.pos + 1) == 45 {
+    return Err(
+      Lexical(
+        "gMonth is --MM: the trailing '--' was an error in the first edition",
+      ),
+    )
   }
   let tz = match c.timezone() {
     Ok(v) => v
@@ -589,7 +626,7 @@ pub fn parse_g_month(s : String) -> Result[Temporal, ValErr] {
 /// The designator letters may not be reordered, and a `T` with nothing after it
 /// is illegal.
 pub fn parse_duration(s : String) -> Result[Duration, ValErr] {
-  let c : DtCursor = { src: s, pos: 0 }
+  let c : DtCursor = { src: s, pos: 0, }
   let mut negative = false
   if c.eat(45) {
     negative = true
@@ -656,12 +693,16 @@ pub fn parse_duration(s : String) -> Result[Duration, ValErr] {
       }
       let n = match parse_uint64(digits) {
         Some(v) => v
-        None => return Err(Lexical("duration number exceeds this implementation's range"))
+        None =>
+          return Err(
+            Lexical("duration number exceeds this implementation's range"),
+          )
       }
       match unit {
         89 => months = months + n * 12L
         77 => months = months + n
-        68 => seconds = decimal_add(seconds, decimal_of(false, "\{n * 86400}", ""))
+        68 =>
+          seconds = decimal_add(seconds, decimal_of(false, "\{n * 86400}", ""))
         _ => ()
       }
     } else {
@@ -680,10 +721,14 @@ pub fn parse_duration(s : String) -> Result[Duration, ValErr] {
       }
       let n = match parse_uint64(digits) {
         Some(v) => v
-        None => return Err(Lexical("duration number exceeds this implementation's range"))
+        None =>
+          return Err(
+            Lexical("duration number exceeds this implementation's range"),
+          )
       }
       match unit {
-        72 => seconds = decimal_add(seconds, decimal_of(false, "\{n * 3600}", ""))
+        72 =>
+          seconds = decimal_add(seconds, decimal_of(false, "\{n * 3600}", ""))
         77 => seconds = decimal_add(seconds, decimal_of(false, "\{n * 60}", ""))
         83 => {
           let whole = decimal_of(false, digits, frac)
@@ -696,7 +741,7 @@ pub fn parse_duration(s : String) -> Result[Duration, ValErr] {
   if !seen_any {
     return Err(Lexical("duration has no fields"))
   }
-  Ok({ negative, months, seconds })
+  Ok({ negative, months, seconds, })
 }
 
 ///|
@@ -724,7 +769,7 @@ pub fn decimal_add(a : Decimal, b : Decimal) -> Decimal {
 }
 
 ///|
-fn pow10_int(n : Int) -> Int {
+fn pow10_int(n : Int32) -> Int32 {
   let mut p = 1
   let mut i = 0
   while i < n {
@@ -735,7 +780,7 @@ fn pow10_int(n : Int) -> Int {
 }
 
 ///|
-fn decimal_scale_to_int(d : Decimal, scale : Int) -> Int {
+fn decimal_scale_to_int(d : Decimal, scale : Int32) -> Int32 {
   let mut v = match parse_uint(d.int_part) {
     Some(x) => x
     None => 0
@@ -758,7 +803,7 @@ fn decimal_scale_to_int(d : Decimal, scale : Int) -> Int {
 
 ///|
 /// Inverse of `days_from_civil`: turns a day count back into a calendar date.
-fn civil_from_days(z : Int64) -> (Int, Int, Int) {
+fn civil_from_days(z : Int64) -> (Int32, Int32, Int32) {
   let zz = z + 719468L
   let era = if zz >= 0L { zz / 146097L } else { (zz - 146096L) / 146097L }
   let doe = zz - era * 146097L
@@ -775,7 +820,12 @@ fn civil_from_days(z : Int64) -> (Int, Int, Int) {
 ///|
 /// Adds a duration's month part to a date, clamping the day to the length of
 /// the target month. Adding one month to 31 January gives 28 or 29 February.
-fn add_months(year : Int, month : Int, day : Int, months : Int64) -> (Int, Int, Int) {
+fn add_months(
+  year : Int32,
+  month : Int32,
+  day : Int32,
+  months : Int64,
+) -> (Int32, Int32, Int32) {
   let total = year.to_int64() * 12L + (month - 1).to_int64() + months
   let mut ny = (total / 12L).to_int()
   let mut nm = (total % 12L).to_int()
@@ -791,7 +841,7 @@ fn add_months(year : Int, month : Int, day : Int, months : Int64) -> (Int, Int, 
 ///|
 /// Number of days from 0001-01-01 to the given date, proleptic Gregorian.
 /// Negative years are handled by extrapolating the same cycle.
-pub fn days_from_civil(year : Int, month : Int, day : Int) -> Int64 {
+pub fn days_from_civil(year : Int32, month : Int32, day : Int32) -> Int64 {
   let mut y = year
   if month <= 2 {
     y = y - 1
@@ -834,7 +884,7 @@ pub fn temporal_seconds(t : Temporal) -> Int64 {
 ///
 /// and an indeterminate comparison makes every ordering facet false, so it has
 /// to be distinguishable from "equal" rather than folded into zero.
-pub fn compare_temporal(a : Temporal, b : Temporal) -> Int? {
+pub fn compare_temporal(a : Temporal, b : Temporal) -> Int32? {
   match (a.tz, b.tz) {
     (Some(_), None) => tzoned_vs_naive(a, b)
     (None, Some(_)) =>
@@ -849,7 +899,7 @@ pub fn compare_temporal(a : Temporal, b : Temporal) -> Int? {
 ///|
 /// `p` carries a timezone, `q` does not. Reading `q` as +14:00 gives the
 /// earliest instant it can denote; as -14:00 the latest.
-fn tzoned_vs_naive(p : Temporal, q : Temporal) -> Int? {
+fn tzoned_vs_naive(p : Temporal, q : Temporal) -> Int32? {
   let p_secs = temporal_seconds(p)
   let q_secs = temporal_seconds(q)
   let earliest = q_secs - 14L * 3600L
@@ -865,7 +915,7 @@ fn tzoned_vs_naive(p : Temporal, q : Temporal) -> Int? {
 
 ///|
 /// Both sides sit on the same timeline, so a plain comparison applies.
-fn compare_on_seconds(a : Temporal, b : Temporal) -> Int {
+fn compare_on_seconds(a : Temporal, b : Temporal) -> Int32 {
   let sa = temporal_seconds(a)
   let sb = temporal_seconds(b)
   if sa != sb {
@@ -886,4 +936,3 @@ fn compare_on_seconds(a : Temporal, b : Temporal) -> Int {
   }
   0
 }
-

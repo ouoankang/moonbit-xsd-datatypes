@@ -1,6 +1,6 @@
 name = "ouoankang/moonbit-xsd-datatypes"
 
-version = "0.2.0"
+version = "0.3.0"
 
 readme = "README.md"
 
@@ -8,14 +8,7 @@ repository = "https://github.com/ouoankang/moonbit-xsd-datatypes"
 
 license = "Apache-2.0"
 
-keywords = [
-  "xml",
-  "xsd",
-  "xml-schema",
-  "datatype",
-  "validation",
-  "w3c",
-]
+keywords = [ "xml", "xsd", "xml-schema", "datatype", "validation", "w3c" ]
 
 preferred_target = "wasm-gc"
 

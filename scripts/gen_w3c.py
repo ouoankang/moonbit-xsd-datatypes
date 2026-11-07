@@ -1,17 +1,27 @@
 """Regenerate src/datatypes/w3c_cases.mbt from the W3C XML Schema test suite.
 
-The full NIST datatypes contribution is 3953 schemas and 19217 instances.
+The full NIST datatypes contribution is 3953 test groups and 19217 instances.
 Downloading all of it is pointless for a datatype validator and committing it
-would bloat the repository, so this takes one representative test group per
-(kind, type, facet) combination, plus one valid and one invalid instance where
-the suite provides both.
+would bloat the repository, so this takes one representative group per
+(kind, type, facet) combination, plus one valid and one invalid instance.
+
+The two halves live in different halves of the suite, which is the part that is
+easy to get wrong:
+
+  - ``SV-IV`` groups (2193 of them, 10609 instances) are all marked *valid*.
+  - ``SV-II`` groups (1760 of them, 8608 instances) are all marked *invalid*.
+
+A generator that only matches ``SV-IV`` therefore produces a one-sided test set:
+it proves the validator does not reject good data, and says nothing about
+whether it accepts bad data. This script pairs the two, taking each half from
+the group that owns it, so every case carries the schema it was written for.
 
 Nothing derived from the suite is committed except the generated MoonBit file,
 which embeds schema and instance text. See NOTICE: those literals stay under the
 W3C Document Licence and are not covered by Apache-2.0.
 
 Usage:
-    python scripts/gen_w3c.py            # full 510 combinations
+    python scripts/gen_w3c.py            # full 510 combinations, both halves
     LIMIT_GROUPS=20 python scripts/gen_w3c.py
 
 Authentication: reads GH_TOKEN, or falls back to `gh auth token`. The API is
@@ -100,8 +110,12 @@ def case_tag(name):
     NIST groups mix schemas and instances from different serials (the QName
     length-1 group ships length-2 instances), so the tag is used to drop those
     rather than report them as validator failures.
+
+    Both suite halves have to be accepted here: `SV-IV` carries the valid
+    instances and `SV-II` the invalid ones. Restricting this to one half is what
+    silently turns the conformance run into a one-sided check.
     """
-    m = re.match(r"NIST(?:Schema|XML)-SV-IV-(.+?)-(\d+)(?:-\d+)?$", name)
+    m = re.match(r"NIST(?:Schema|XML)-SV-(?:IV|II)-(.+?)-(\d+)(?:-\d+)?$", name)
     if not m:
         return None
     return (m.group(1), m.group(2))
@@ -210,25 +224,32 @@ def main():
         with open(TESTSET_PATH, "w", encoding="utf-8", newline="\n") as f:
             f.write(text)
 
+    # One bucket per (kind, type, facet) combination. A combination can only be
+    # tested both ways when its valid case comes from SV-IV and its invalid case
+    # from SV-II, so the two halves are merged here rather than filtered apart.
     seen = {}
     for name, href, instances in parse_testset(text):
         key = normalize(name)
-        if key not in seen:
-            seen[key] = (name, href, instances)
+        slot = seen.setdefault(key, {"valid": None, "invalid": None})
+        for inst_href, expected in instances:
+            bucket = "valid" if expected else "invalid"
+            if slot[bucket] is None:
+                slot[bucket] = (href, inst_href)
     keys = sorted(seen)
-    print("unique combinations:", len(keys))
+    both = sum(1 for s in seen.values() if s["valid"] and s["invalid"])
+    print("unique combinations:", len(keys), "| covering both halves:", both)
     chosen = keys[:LIMIT_GROUPS]
 
     wanted = []
     plan = []
     for key in chosen:
-        name, href, instances = seen[key]
-        valid = [i for i in instances if i[1]]
-        invalid = [i for i in instances if not i[1]]
-        picks = (valid[:1] + invalid[:1]) if valid and invalid else instances[:2]
-        plan.append((key, href, picks))
-        wanted.append(repo_path(href))
-        for inst_href, _ in picks:
+        for bucket, expected in (("valid", True), ("invalid", False)):
+            entry = seen[key][bucket]
+            if entry is None:
+                continue
+            href, inst_href = entry
+            plan.append((key, href, inst_href, expected))
+            wanted.append(repo_path(href))
             wanted.append(repo_path(inst_href))
     unique = sorted(set(wanted))
     print("files to fetch:", len(unique))
@@ -246,32 +267,45 @@ def main():
 
     cases = []
     failures = []
-    for key, href, picks in plan:
+    for key, href, inst_href, expected in plan:
         try:
             schema_bytes = fetch(repo_path(href))
         except Exception as e:
             failures.append((key, "schema", str(e)[:80]))
             continue
         want_serial = file_serial(href)
-        for inst_href, expected in picks:
-            got_serial = file_serial(inst_href)
-            if want_serial is not None and got_serial is not None and want_serial != got_serial:
-                failures.append((key, "serial-mismatch", inst_href.split("/")[-1]))
-                continue
-            try:
-                inst_bytes = fetch(repo_path(inst_href))
-            except Exception as e:
-                failures.append((key, "instance", str(e)[:80]))
-                continue
-            element, value = root_content(inst_bytes)
-            if element is None or value is None:
-                failures.append((key, "parse", "no root element"))
-                continue
-            cases.append(
-                (schema_bytes.decode("utf-8", "replace"), element, value, expected, key)
-            )
+        got_serial = file_serial(inst_href)
+        if want_serial is not None and got_serial is not None and want_serial != got_serial:
+            failures.append((key, "serial-mismatch", inst_href.split("/")[-1]))
+            continue
+        try:
+            inst_bytes = fetch(repo_path(inst_href))
+        except Exception as e:
+            failures.append((key, "instance", str(e)[:80]))
+            continue
+        element, value = root_content(inst_bytes)
+        if element is None or value is None:
+            failures.append((key, "parse", "no root element"))
+            continue
+        cases.append(
+            (schema_bytes.decode("utf-8", "replace"), element, value, expected, key)
+        )
 
-    print("cases:", len(cases), "failures:", len(failures))
+    n_valid = sum(1 for c in cases if c[3])
+    print(
+        "cases:",
+        len(cases),
+        "| valid:",
+        n_valid,
+        "| invalid:",
+        len(cases) - n_valid,
+        "| failures:",
+        len(failures),
+    )
+    if not cases or n_valid == len(cases):
+        # A one-sided set is the failure mode this script exists to avoid.
+        print("refusing to write: no invalid cases were collected")
+        sys.exit(1)
     if failures[:5]:
         print("sample failures:", failures[:5])
 

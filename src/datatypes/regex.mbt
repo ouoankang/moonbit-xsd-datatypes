@@ -18,7 +18,7 @@
 ///|
 /// Decodes one code point starting at `i`, returning it with the next index.
 /// Surrogate pairs are combined so that astral characters count as one.
-fn cp_at(s : String, i : Int) -> (Int, Int) {
+fn cp_at(s : String, i : Int32) -> (Int32, Int32) {
   let c = code_at_b(s, i)
   if c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length() {
     let lo = code_at_b(s, i + 1)
@@ -34,31 +34,33 @@ fn cp_at(s : String, i : Int) -> (Int, Int) {
 /// categories, optionally negated.
 pub struct CharClass {
   negated : Bool
-  ranges : Array[(Int, Int)]
+  ranges : Array[(Int32, Int32)]
   /// Category names such as "d", "w", "s", "i", "c", or the inside of `\p{...}`.
   categories : Array[String]
   /// Subtracted ranges, from `[a-z-[aeiou]]`.
-  excluded : Array[(Int, Int)]
+  excluded : Array[(Int32, Int32)]
 } derive(Debug)
 
+///|
 pub extend CharClass with @debug.Debug::{to_repr}
 
 ///|
 pub enum ReNode {
   Empty
-  Char(Int)
+  Char(Int32)
   AnyChar
   Class(CharClass)
   Concat(Array[ReNode])
   Alt(Array[ReNode])
-  Repeat(ReNode, Int, Int)
+  Repeat(ReNode, Int32, Int32)
 } derive(Debug)
 
+///|
 pub extend ReNode with @debug.Debug::{to_repr}
 
 ///|
 /// Bounds on repetition. `Repeat` uses -1 for "unbounded".
-let repeat_unbounded : Int = -1
+let repeat_unbounded : Int32 = -1
 
 ///|
 /// Result type for the regex parser.
@@ -68,11 +70,11 @@ pub type ReResult = Result[ReNode, String]
 /// Cursor over the pattern source.
 priv struct ReCursor {
   src : String
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
-fn ReCursor::peek(self : ReCursor) -> Int {
+fn ReCursor::peek(self : ReCursor) -> Int32 {
   code_at_b(self.src, self.pos)
 }
 
@@ -82,7 +84,7 @@ fn ReCursor::eof(self : ReCursor) -> Bool {
 }
 
 ///|
-fn ReCursor::eat(self : ReCursor, c : Int) -> Bool {
+fn ReCursor::eat(self : ReCursor, c : Int32) -> Bool {
   if self.peek() == c {
     self.pos = self.pos + 1
     true
@@ -94,7 +96,7 @@ fn ReCursor::eat(self : ReCursor, c : Int) -> Bool {
 ///|
 /// Parses an XSD regular expression into an AST.
 pub fn parse_xsd_regex(src : String) -> ReResult {
-  let c : ReCursor = { src, pos: 0 }
+  let c : ReCursor = { src, pos: 0, }
   let node = match parse_alt(c) {
     Ok(n) => n
     Err(e) => return Err(e)
@@ -194,7 +196,7 @@ fn parse_quantifier(c : ReCursor, atom : ReNode) -> ReResult {
 }
 
 ///|
-fn read_uint(c : ReCursor) -> Int? {
+fn read_uint(c : ReCursor) -> Int32? {
   let start = c.pos
   let mut value = 0
   while is_digit_b(c.peek()) {
@@ -277,14 +279,33 @@ fn parse_escape(c : ReCursor) -> Result[ReNode, String] {
     c.pos = c.pos + 1
     return Ok(Char(9))
   }
-  if ch == 92 || ch == 124 || ch == 46 || ch == 45 || ch == 94 || ch == 63 ||
-    ch == 42 || ch == 43 || ch == 123 || ch == 125 || ch == 40 || ch == 41 ||
-    ch == 91 || ch == 93 {
+  if ch == 92 ||
+    ch == 124 ||
+    ch == 46 ||
+    ch == 45 ||
+    ch == 94 ||
+    ch == 63 ||
+    ch == 42 ||
+    ch == 43 ||
+    ch == 123 ||
+    ch == 125 ||
+    ch == 40 ||
+    ch == 41 ||
+    ch == 91 ||
+    ch == 93 {
     c.pos = c.pos + 1
     return Ok(Char(ch))
   }
-  if ch == 100 || ch == 68 || ch == 119 || ch == 87 || ch == 115 || ch == 83 ||
-    ch == 105 || ch == 73 || ch == 99 || ch == 67 {
+  if ch == 100 ||
+    ch == 68 ||
+    ch == 119 ||
+    ch == 87 ||
+    ch == 115 ||
+    ch == 83 ||
+    ch == 105 ||
+    ch == 73 ||
+    ch == 99 ||
+    ch == 67 {
     c.pos = c.pos + 1
     let name = match ch {
       100 => "d"
@@ -300,12 +321,7 @@ fn parse_escape(c : ReCursor) -> Result[ReNode, String] {
       _ => ""
     }
     return Ok(
-      Class({
-        negated: false,
-        ranges: [],
-        categories: [name],
-        excluded: [],
-      }),
+      Class({ negated: false, ranges: [], categories: [name], excluded: [], }),
     )
   }
   if ch == 112 || ch == 80 {
@@ -324,12 +340,7 @@ fn parse_escape(c : ReCursor) -> Result[ReNode, String] {
     let cat = c.src[start:c.pos].to_owned()
     c.pos = c.pos + 1
     return Ok(
-      Class({
-        negated: ch == 80,
-        ranges: [],
-        categories: [cat],
-        excluded: [],
-      }),
+      Class({ negated: ch == 80, ranges: [], categories: [cat], excluded: [], }),
     )
   }
   return Err("unsupported escape \\\{Int::unsafe_to_char(ch)}")
@@ -342,17 +353,15 @@ fn parse_class(c : ReCursor) -> Result[ReNode, String] {
     return Err("expected '['")
   }
   let negated = c.eat(94)
-  let ranges : Array[(Int, Int)] = []
+  let ranges : Array[(Int32, Int32)] = []
   let categories : Array[String] = []
-  let excluded : Array[(Int, Int)] = []
+  let excluded : Array[(Int32, Int32)] = []
   let mut first = true
   while !c.eof() {
     // A ']' as the very first item is a literal.
     if c.peek() == 93 && !first {
       c.pos = c.pos + 1
-      return Ok(
-        Class({ negated, ranges, categories, excluded }),
-      )
+      return Ok(Class({ negated, ranges, categories, excluded, }))
     }
     first = false
     // Subtraction: '-[' inside the class.
@@ -377,7 +386,8 @@ fn parse_class(c : ReCursor) -> Result[ReNode, String] {
       continue
     }
     // Range?
-    if c.peek() == 45 && code_at_b(c.src, c.pos + 1) != 93 &&
+    if c.peek() == 45 &&
+      code_at_b(c.src, c.pos + 1) != 93 &&
       code_at_b(c.src, c.pos + 1) != 45 {
       c.pos = c.pos + 1
       let (hi, cat2) = match read_class_char(c) {
@@ -398,7 +408,7 @@ fn parse_class(c : ReCursor) -> Result[ReNode, String] {
 ///|
 /// Reads one item inside a character class. Returns (code point, "") for a
 /// plain character, or (0, category) for an escape naming a category.
-fn read_class_char(c : ReCursor) -> Result[(Int, String), String] {
+fn read_class_char(c : ReCursor) -> Result[(Int32, String), String] {
   if c.eof() {
     return Err("unexpected end of character class")
   }
@@ -421,8 +431,16 @@ fn read_class_char(c : ReCursor) -> Result[(Int, String), String] {
       c.pos = c.pos + 1
       return Ok((9, ""))
     }
-    if e == 100 || e == 68 || e == 119 || e == 87 || e == 115 || e == 83 ||
-      e == 105 || e == 73 || e == 99 || e == 67 {
+    if e == 100 ||
+      e == 68 ||
+      e == 119 ||
+      e == 87 ||
+      e == 115 ||
+      e == 83 ||
+      e == 105 ||
+      e == 73 ||
+      e == 99 ||
+      e == 67 {
       c.pos = c.pos + 1
       let name = match e {
         100 => "d"
@@ -465,7 +483,7 @@ fn read_class_char(c : ReCursor) -> Result[(Int, String), String] {
 
 ///|
 /// True when `cp` falls in one of the ranges.
-fn in_ranges(cp : Int, ranges : Array[(Int, Int)]) -> Bool {
+fn in_ranges(cp : Int32, ranges : Array[(Int32, Int32)]) -> Bool {
   for r in ranges {
     if cp >= r.0 && cp <= r.1 {
       return true
@@ -476,8 +494,9 @@ fn in_ranges(cp : Int, ranges : Array[(Int, Int)]) -> Bool {
 
 ///|
 /// XML NameStartChar, approximated.
-fn is_xml_name_start(cp : Int) -> Bool {
-  cp == 58 || cp == 95 ||
+fn is_xml_name_start(cp : Int32) -> Bool {
+  cp == 58 ||
+  cp == 95 ||
   (cp >= 65 && cp <= 90) ||
   (cp >= 97 && cp <= 122) ||
   (cp >= 0xC0 && cp <= 0x2FF) ||
@@ -487,7 +506,7 @@ fn is_xml_name_start(cp : Int) -> Bool {
 
 ///|
 /// XML NameChar, approximated.
-fn is_xml_name_char(cp : Int) -> Bool {
+fn is_xml_name_char(cp : Int32) -> Bool {
   is_xml_name_start(cp) ||
   cp == 45 ||
   cp == 46 ||
@@ -499,107 +518,117 @@ fn is_xml_name_char(cp : Int) -> Bool {
 ///|
 /// Decimal digit in any script, approximated by the blocks that actually appear
 /// in exchanged data.
-fn is_unicode_digit(cp : Int) -> Bool {
+fn is_unicode_digit(cp : Int32) -> Bool {
   // Every Nd block in Unicode 15.1. The earlier version covered six of them,
   // which made `\d` reject Malayalam and mathematical digits that XSD counts
   // as decimal digits.
-    (cp >= 0x0030 && cp <= 0x0039) ||
-    (cp >= 0x0660 && cp <= 0x0669) ||
-    (cp >= 0x06F0 && cp <= 0x06F9) ||
-    (cp >= 0x07C0 && cp <= 0x07C9) ||
-    (cp >= 0x0966 && cp <= 0x096F) ||
-    (cp >= 0x09E6 && cp <= 0x09EF) ||
-    (cp >= 0x0A66 && cp <= 0x0A6F) ||
-    (cp >= 0x0AE6 && cp <= 0x0AEF) ||
-    (cp >= 0x0B66 && cp <= 0x0B6F) ||
-    (cp >= 0x0BE6 && cp <= 0x0BEF) ||
-    (cp >= 0x0C66 && cp <= 0x0C6F) ||
-    (cp >= 0x0CE6 && cp <= 0x0CEF) ||
-    (cp >= 0x0D66 && cp <= 0x0D6F) ||
-    (cp >= 0x0DE6 && cp <= 0x0DEF) ||
-    (cp >= 0x0E50 && cp <= 0x0E59) ||
-    (cp >= 0x0ED0 && cp <= 0x0ED9) ||
-    (cp >= 0x0F20 && cp <= 0x0F29) ||
-    (cp >= 0x1040 && cp <= 0x1049) ||
-    (cp >= 0x1090 && cp <= 0x1099) ||
-    (cp >= 0x17E0 && cp <= 0x17E9) ||
-    (cp >= 0x1810 && cp <= 0x1819) ||
-    (cp >= 0x1946 && cp <= 0x194F) ||
-    (cp >= 0x19D0 && cp <= 0x19D9) ||
-    (cp >= 0x1A80 && cp <= 0x1A89) ||
-    (cp >= 0x1A90 && cp <= 0x1A99) ||
-    (cp >= 0x1B50 && cp <= 0x1B59) ||
-    (cp >= 0x1BB0 && cp <= 0x1BB9) ||
-    (cp >= 0x1C40 && cp <= 0x1C49) ||
-    (cp >= 0x1C50 && cp <= 0x1C59) ||
-    (cp >= 0xA620 && cp <= 0xA629) ||
-    (cp >= 0xA8D0 && cp <= 0xA8D9) ||
-    (cp >= 0xA900 && cp <= 0xA909) ||
-    (cp >= 0xA9D0 && cp <= 0xA9D9) ||
-    (cp >= 0xA9F0 && cp <= 0xA9F9) ||
-    (cp >= 0xAA50 && cp <= 0xAA59) ||
-    (cp >= 0xABF0 && cp <= 0xABF9) ||
-    (cp >= 0xFF10 && cp <= 0xFF19) ||
-    (cp >= 0x104A0 && cp <= 0x104A9) ||
-    (cp >= 0x10D30 && cp <= 0x10D39) ||
-    (cp >= 0x11066 && cp <= 0x1106F) ||
-    (cp >= 0x110F0 && cp <= 0x110F9) ||
-    (cp >= 0x11136 && cp <= 0x1113F) ||
-    (cp >= 0x111D0 && cp <= 0x111D9) ||
-    (cp >= 0x112F0 && cp <= 0x112F9) ||
-    (cp >= 0x11450 && cp <= 0x11459) ||
-    (cp >= 0x114D0 && cp <= 0x114D9) ||
-    (cp >= 0x11650 && cp <= 0x11659) ||
-    (cp >= 0x116C0 && cp <= 0x116C9) ||
-    (cp >= 0x11730 && cp <= 0x11739) ||
-    (cp >= 0x118E0 && cp <= 0x118E9) ||
-    (cp >= 0x11950 && cp <= 0x11959) ||
-    (cp >= 0x11C50 && cp <= 0x11C59) ||
-    (cp >= 0x11D50 && cp <= 0x11D59) ||
-    (cp >= 0x11DA0 && cp <= 0x11DA9) ||
-    (cp >= 0x16A60 && cp <= 0x16A69) ||
-    (cp >= 0x16AC0 && cp <= 0x16AC9) ||
-    (cp >= 0x16B50 && cp <= 0x16B59) ||
-    (cp >= 0x1D7CE && cp <= 0x1D7FF) ||
-    (cp >= 0x1E140 && cp <= 0x1E149) ||
-    (cp >= 0x1E2F0 && cp <= 0x1E2F9) ||
-    (cp >= 0x1E4F0 && cp <= 0x1E4F9) ||
-    (cp >= 0x1E950 && cp <= 0x1E959) ||
-    (cp >= 0x1FBF0 && cp <= 0x1FBF9)
+  (cp >= 0x0030 && cp <= 0x0039) ||
+  (cp >= 0x0660 && cp <= 0x0669) ||
+  (cp >= 0x06F0 && cp <= 0x06F9) ||
+  (cp >= 0x07C0 && cp <= 0x07C9) ||
+  (cp >= 0x0966 && cp <= 0x096F) ||
+  (cp >= 0x09E6 && cp <= 0x09EF) ||
+  (cp >= 0x0A66 && cp <= 0x0A6F) ||
+  (cp >= 0x0AE6 && cp <= 0x0AEF) ||
+  (cp >= 0x0B66 && cp <= 0x0B6F) ||
+  (cp >= 0x0BE6 && cp <= 0x0BEF) ||
+  (cp >= 0x0C66 && cp <= 0x0C6F) ||
+  (cp >= 0x0CE6 && cp <= 0x0CEF) ||
+  (cp >= 0x0D66 && cp <= 0x0D6F) ||
+  (cp >= 0x0DE6 && cp <= 0x0DEF) ||
+  (cp >= 0x0E50 && cp <= 0x0E59) ||
+  (cp >= 0x0ED0 && cp <= 0x0ED9) ||
+  (cp >= 0x0F20 && cp <= 0x0F29) ||
+  (cp >= 0x1040 && cp <= 0x1049) ||
+  (cp >= 0x1090 && cp <= 0x1099) ||
+  (cp >= 0x17E0 && cp <= 0x17E9) ||
+  (cp >= 0x1810 && cp <= 0x1819) ||
+  (cp >= 0x1946 && cp <= 0x194F) ||
+  (cp >= 0x19D0 && cp <= 0x19D9) ||
+  (cp >= 0x1A80 && cp <= 0x1A89) ||
+  (cp >= 0x1A90 && cp <= 0x1A99) ||
+  (cp >= 0x1B50 && cp <= 0x1B59) ||
+  (cp >= 0x1BB0 && cp <= 0x1BB9) ||
+  (cp >= 0x1C40 && cp <= 0x1C49) ||
+  (cp >= 0x1C50 && cp <= 0x1C59) ||
+  (cp >= 0xA620 && cp <= 0xA629) ||
+  (cp >= 0xA8D0 && cp <= 0xA8D9) ||
+  (cp >= 0xA900 && cp <= 0xA909) ||
+  (cp >= 0xA9D0 && cp <= 0xA9D9) ||
+  (cp >= 0xA9F0 && cp <= 0xA9F9) ||
+  (cp >= 0xAA50 && cp <= 0xAA59) ||
+  (cp >= 0xABF0 && cp <= 0xABF9) ||
+  (cp >= 0xFF10 && cp <= 0xFF19) ||
+  (cp >= 0x104A0 && cp <= 0x104A9) ||
+  (cp >= 0x10D30 && cp <= 0x10D39) ||
+  (cp >= 0x11066 && cp <= 0x1106F) ||
+  (cp >= 0x110F0 && cp <= 0x110F9) ||
+  (cp >= 0x11136 && cp <= 0x1113F) ||
+  (cp >= 0x111D0 && cp <= 0x111D9) ||
+  (cp >= 0x112F0 && cp <= 0x112F9) ||
+  (cp >= 0x11450 && cp <= 0x11459) ||
+  (cp >= 0x114D0 && cp <= 0x114D9) ||
+  (cp >= 0x11650 && cp <= 0x11659) ||
+  (cp >= 0x116C0 && cp <= 0x116C9) ||
+  (cp >= 0x11730 && cp <= 0x11739) ||
+  (cp >= 0x118E0 && cp <= 0x118E9) ||
+  (cp >= 0x11950 && cp <= 0x11959) ||
+  (cp >= 0x11C50 && cp <= 0x11C59) ||
+  (cp >= 0x11D50 && cp <= 0x11D59) ||
+  (cp >= 0x11DA0 && cp <= 0x11DA9) ||
+  (cp >= 0x16A60 && cp <= 0x16A69) ||
+  (cp >= 0x16AC0 && cp <= 0x16AC9) ||
+  (cp >= 0x16B50 && cp <= 0x16B59) ||
+  (cp >= 0x1D7CE && cp <= 0x1D7FF) ||
+  (cp >= 0x1E140 && cp <= 0x1E149) ||
+  (cp >= 0x1E2F0 && cp <= 0x1E2F9) ||
+  (cp >= 0x1E4F0 && cp <= 0x1E4F9) ||
+  (cp >= 0x1E950 && cp <= 0x1E959) ||
+  (cp >= 0x1FBF0 && cp <= 0x1FBF9)
 }
 
 ///|
-fn is_unicode_space(cp : Int) -> Bool {
-  cp == 32 || cp == 9 || cp == 10 || cp == 13 ||
-  cp == 0xA0 || cp == 0x1680 ||
+fn is_unicode_space(cp : Int32) -> Bool {
+  cp == 32 ||
+  cp == 9 ||
+  cp == 10 ||
+  cp == 13 ||
+  cp == 0xA0 ||
+  cp == 0x1680 ||
   (cp >= 0x2000 && cp <= 0x200A) ||
-  cp == 0x2028 || cp == 0x2029 ||
-  cp == 0x202F || cp == 0x205F || cp == 0x3000
+  cp == 0x2028 ||
+  cp == 0x2029 ||
+  cp == 0x202F ||
+  cp == 0x205F ||
+  cp == 0x3000
 }
 
 ///|
-fn is_unicode_letter(cp : Int) -> Bool {
+fn is_unicode_letter(cp : Int32) -> Bool {
   (cp >= 65 && cp <= 90) ||
-  (cp >= 97 && cp <= 122) || (cp >= 0xC0 && cp <= 0x24F) ||
-  (cp >= 0x370 && cp <= 0x1FFF) || (cp >= 0x2C00 && cp <= 0xD7FF) ||
-  (cp >= 0xF900 && cp <= 0xFDCF) || (cp >= 0x10000 && cp <= 0xEFFFF)
+  (cp >= 97 && cp <= 122) ||
+  (cp >= 0xC0 && cp <= 0x24F) ||
+  (cp >= 0x370 && cp <= 0x1FFF) ||
+  (cp >= 0x2C00 && cp <= 0xD7FF) ||
+  (cp >= 0xF900 && cp <= 0xFDCF) ||
+  (cp >= 0x10000 && cp <= 0xEFFFF)
 }
 
 ///|
 /// Upper/lower case classification, ASCII plus Latin-1.
-fn is_unicode_upper(cp : Int) -> Bool {
+fn is_unicode_upper(cp : Int32) -> Bool {
   (cp >= 65 && cp <= 90) || (cp >= 0xC0 && cp <= 0xDE && cp != 0xD7)
 }
 
 ///|
-fn is_unicode_lower(cp : Int) -> Bool {
+fn is_unicode_lower(cp : Int32) -> Bool {
   (cp >= 97 && cp <= 122) || (cp >= 0xDF && cp <= 0xFF && cp != 0xF7)
 }
 
 ///|
 /// Category membership. Returns false for a category name we do not model, which
 /// makes the pattern fail loudly rather than silently matching everything.
-fn in_category(cp : Int, name : String) -> Bool {
+fn in_category(cp : Int32, name : String) -> Bool {
   if name.is_empty() {
     return false
   }
@@ -612,13 +641,15 @@ fn in_category(cp : Int, name : String) -> Bool {
     "d" => is_unicode_digit(cp)
     "D" => !is_unicode_digit(cp)
     "w" =>
-      is_unicode_letter(cp) || is_unicode_digit(cp) || cp == 95 ||
+      is_unicode_letter(cp) ||
+      is_unicode_digit(cp) ||
+      cp == 95 ||
       (cp >= 0x300 && cp <= 0x36F)
     "W" =>
       !(is_unicode_letter(cp) ||
-        is_unicode_digit(cp) ||
-        cp == 95 ||
-        (cp >= 0x300 && cp <= 0x36F))
+      is_unicode_digit(cp) ||
+      cp == 95 ||
+      (cp >= 0x300 && cp <= 0x36F))
     "s" => is_unicode_space(cp)
     "S" => !is_unicode_space(cp)
     "i" => is_xml_name_start(cp)
@@ -640,7 +671,7 @@ fn in_category(cp : Int, name : String) -> Bool {
 
 ///|
 /// Tests one code point against a class.
-fn class_matches(cc : CharClass, cp : Int) -> Bool {
+fn class_matches(cc : CharClass, cp : Int32) -> Bool {
   let mut hit = in_ranges(cp, cc.ranges)
   if !hit {
     for cat in cc.categories {
@@ -666,10 +697,10 @@ fn class_matches(cc : CharClass, cp : Int) -> Bool {
 /// The matcher returns every possible end position rather than the first one,
 /// because a `Concat` needs to backtrack: if one branch of an alternative leads
 /// to a dead end, the next candidate has to be tried.
-fn match_node(node : ReNode, s : String, pos : Int) -> Array[Int] {
+fn match_node(node : ReNode, s : String, pos : Int32) -> Array[Int32] {
   match node {
     Empty => [pos]
-    Char(cp) => {
+    Char(cp) =>
       if pos >= s.length() {
         []
       } else {
@@ -680,8 +711,7 @@ fn match_node(node : ReNode, s : String, pos : Int) -> Array[Int] {
           []
         }
       }
-    }
-    AnyChar => {
+    AnyChar =>
       if pos >= s.length() {
         []
       } else {
@@ -693,8 +723,7 @@ fn match_node(node : ReNode, s : String, pos : Int) -> Array[Int] {
           [next]
         }
       }
-    }
-    Class(cc) => {
+    Class(cc) =>
       if pos >= s.length() {
         []
       } else {
@@ -705,9 +734,8 @@ fn match_node(node : ReNode, s : String, pos : Int) -> Array[Int] {
           []
         }
       }
-    }
     Alt(branches) => {
-      let out : Array[Int] = []
+      let out : Array[Int32] = []
       for b in branches {
         for e in match_node(b, s, pos) {
           push_unique(out, e)
@@ -721,7 +749,7 @@ fn match_node(node : ReNode, s : String, pos : Int) -> Array[Int] {
 }
 
 ///|
-fn push_unique(out : Array[Int], value : Int) -> Unit {
+fn push_unique(out : Array[Int32], value : Int32) -> Unit {
   for existing in out {
     if existing == value {
       return
@@ -733,14 +761,14 @@ fn push_unique(out : Array[Int], value : Int) -> Unit {
 ///|
 fn match_concat(
   items : Array[ReNode],
-  index : Int,
+  index : Int32,
   s : String,
-  pos : Int,
-) -> Array[Int] {
+  pos : Int32,
+) -> Array[Int32] {
   if index >= items.length() {
     return [pos]
   }
-  let out : Array[Int] = []
+  let out : Array[Int32] = []
   for next in match_node(items[index], s, pos) {
     for end in match_concat(items, index + 1, s, next) {
       push_unique(out, end)
@@ -755,12 +783,12 @@ fn match_concat(
 fn match_repeat(
   inner : ReNode,
   s : String,
-  pos : Int,
-  count : Int,
-  min : Int,
-  max : Int,
-) -> Array[Int] {
-  let out : Array[Int] = []
+  pos : Int32,
+  count : Int32,
+  min : Int32,
+  max : Int32,
+) -> Array[Int32] {
+  let out : Array[Int32] = []
   if count >= min {
     push_unique(out, pos)
   }
@@ -786,31 +814,12 @@ fn match_repeat(
 }
 
 ///|
-/// `pattern` facet semantics: is there *any* match inside `text`?
-pub fn xsd_pattern_search(pattern : String, text : String) -> Bool {
-  let node = match parse_xsd_regex(pattern) {
-    Ok(n) => n
-    // A malformed pattern is a schema error; treating it as "no match" keeps
-    // validation total and surfaces the problem through the schema checker.
-    Err(_) => return false
-  }
-  let mut start = 0
-  while true {
-    if !match_node(node, text, start).is_empty() {
-      return true
-    }
-    if start >= text.length() {
-      return false
-    }
-    let (_, next) = cp_at(text, start)
-    start = next
-  }
-  false
-}
-
-///|
-/// True when `text` matches the whole pattern, used by tests and by anyone who
-/// needs anchoring semantics.
+/// `pattern` facet semantics: `text` must match the whole expression.
+///
+/// XSD 1.0 Part 2 §F anchors every pattern at both ends implicitly, so `[A-Z]+`
+/// rejects `A1`. There is deliberately no substring-search entry point here: an
+/// earlier version of this module had one, and it accepted values that the
+/// facet has to reject.
 pub fn xsd_pattern_full_match(pattern : String, text : String) -> Bool {
   let node = match parse_xsd_regex(pattern) {
     Ok(n) => n

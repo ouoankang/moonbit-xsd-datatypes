@@ -4,7 +4,7 @@
 // `length` facet (which counts octets, not characters) work on the value.
 
 ///|
-fn code_at_x(s : String, i : Int) -> Int {
+fn code_at_x(s : String, i : Int32) -> Int32 {
   if i < 0 || i >= s.length() {
     -1
   } else {
@@ -13,12 +13,12 @@ fn code_at_x(s : String, i : Int) -> Int {
 }
 
 ///|
-fn is_hex_digit(c : Int) -> Bool {
+fn is_hex_digit(c : Int32) -> Bool {
   (c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102)
 }
 
 ///|
-fn hex_value(c : Int) -> Int {
+fn hex_value(c : Int32) -> Int32 {
   if c >= 48 && c <= 57 {
     c - 48
   } else if c >= 65 && c <= 70 {
@@ -43,11 +43,11 @@ pub fn parse_hex_binary(s : String) -> Result[Octets, ValErr] {
       return Err(Lexical("hexBinary contains a non-hex character"))
     }
     let v = hex_value(c)
-    buf.write_char(Int::unsafe_to_char(if v < 10 { 48 + v } else { 87 + v }))
+    buf.write_char(Int32::unsafe_to_char(if v < 10 { 48 + v } else { 87 + v }))
     i = i + 1
   }
   let canonical = buf.to_string()
-  Ok({ canonical, len_bytes: n / 2 })
+  Ok({ canonical, len_bytes: n / 2, })
 }
 
 ///|
@@ -62,19 +62,19 @@ fn base64_encode(raw : String) -> String {
     let b1 = if i + 1 < n { code_at_x(raw, i + 1) & 0xFF } else { 0 }
     let b2 = if i + 2 < n { code_at_x(raw, i + 2) & 0xFF } else { 0 }
     let remaining = n - i
-    buf.write_char(Int::unsafe_to_char(code_at_x(alphabet, b0 >> 2)))
+    buf.write_char(Int32::unsafe_to_char(code_at_x(alphabet, b0 >> 2)))
     buf.write_char(
-      Int::unsafe_to_char(code_at_x(alphabet, ((b0 & 3) << 4) | (b1 >> 4))),
+      Int32::unsafe_to_char(code_at_x(alphabet, ((b0 & 3) << 4) | (b1 >> 4))),
     )
     if remaining > 1 {
       buf.write_char(
-        Int::unsafe_to_char(code_at_x(alphabet, ((b1 & 15) << 2) | (b2 >> 6))),
+        Int32::unsafe_to_char(code_at_x(alphabet, ((b1 & 15) << 2) | (b2 >> 6))),
       )
     } else {
       buf.write_char('=')
     }
     if remaining > 2 {
-      buf.write_char(Int::unsafe_to_char(code_at_x(alphabet, b2 & 63)))
+      buf.write_char(Int32::unsafe_to_char(code_at_x(alphabet, b2 & 63)))
     } else {
       buf.write_char('=')
     }
@@ -125,7 +125,7 @@ pub fn parse_base64_binary(s : String) -> Result[Octets, ValErr] {
     bits = bits + 6
     if bits >= 8 {
       bits = bits - 8
-      buf.write_char(Int::unsafe_to_char((acc >> bits) & 0xFF))
+      buf.write_char(Int32::unsafe_to_char((acc >> bits) & 0xFF))
       acc = acc & ((1 << bits) - 1)
     }
   }
@@ -136,5 +136,5 @@ pub fn parse_base64_binary(s : String) -> Result[Octets, ValErr] {
     return Err(Lexical("base64 length is not a multiple of four"))
   }
   let raw = buf.to_string()
-  Ok({ canonical: base64_encode(raw), len_bytes: raw.length() })
+  Ok({ canonical: base64_encode(raw), len_bytes: raw.length(), })
 }

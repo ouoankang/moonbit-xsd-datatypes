@@ -2,16 +2,41 @@
 //
 //   moon run cmd/main -- <type> <value>...   validate values against a built-in
 //   moon run cmd/main -- --list              list the built-in type names
-//   moon run cmd/main -- --xml <file?>       print the element tree of a document
+//   moon run cmd/main -- --schema <f.xsd> <type> <value>...
 //
-// Exit status is 1 when any value is invalid, so the tool can be used in a
-// shell pipeline.
+// The tool prints one line per value and does not set an exit status: the
+// runtime this module targets exposes no way to choose one. Callers should read
+// the output, where every line starts with `valid` or `INVALID`.
+
+///|
+/// Does this look like the path the runtime was launched with, rather than an
+/// argument the user wrote?
+///
+/// `@env.args()` is not normalised across back ends: node puts the script path
+/// at argv[0], the wasm runner puts the module path there, and native puts the
+/// executable. Assuming a fixed offset is wrong on at least one of them, and
+/// guessing from "does any argument start with --" breaks every invocation that
+/// has no option, including `-- dateTime 2026-02-30` and any `gMonth` value
+/// (whose lexical form is `--MM--`).
+///
+/// A path is recognisable on its own: no type name and no value in this tool's
+/// grammar contains a separator or ends in a runtime's extension.
+fn looks_like_program_path(s : String) -> Bool {
+  s.contains("/") ||
+  s.contains("\\") ||
+  s.has_suffix(".js") ||
+  s.has_suffix(".mjs") ||
+  s.has_suffix(".wasm") ||
+  s.has_suffix(".exe")
+}
 
 ///|
 fn usage() -> Unit {
   println("moonbit-xsd-datatypes")
   println("")
-  println("  <type> <value>     validate one or more values against a built-in type")
+  println(
+    "  <type> <value>     validate one or more values against a built-in type",
+  )
   println("  --list             list built-in type names")
   println("  --types            same as --list")
   println("")
@@ -23,34 +48,27 @@ fn usage() -> Unit {
 ///|
 fn builtin_type_names() -> Array[String] {
   [
-    "string", "boolean", "decimal", "float", "double", "duration", "dateTime",
-    "time", "date", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth",
-    "hexBinary", "base64Binary", "anyURI", "QName", "NOTATION",
-    "normalizedString", "token", "language", "NMTOKEN", "NMTOKENS", "Name",
-    "NCName", "ID", "IDREF", "IDREFS", "ENTITY", "ENTITIES", "integer",
-    "nonPositiveInteger", "negativeInteger", "long", "int", "short", "byte",
-    "nonNegativeInteger", "unsignedLong", "unsignedInt", "unsignedShort",
-    "unsignedByte", "positiveInteger",
+    "string", "boolean", "decimal", "float", "double", "duration", "dateTime", "time",
+    "date", "gYearMonth", "gYear", "gMonthDay", "gDay", "gMonth", "hexBinary", "base64Binary",
+    "anyURI", "QName", "NOTATION", "normalizedString", "token", "language", "NMTOKEN",
+    "NMTOKENS", "Name", "NCName", "ID", "IDREF", "IDREFS", "ENTITY", "ENTITIES",
+    "integer", "nonPositiveInteger", "negativeInteger", "long", "int", "short", "byte",
+    "nonNegativeInteger", "unsignedLong", "unsignedInt", "unsignedShort", "unsignedByte",
+    "positiveInteger",
   ]
 }
 
 ///|
 fn main {
   let args = @env.args()
-  // Different back ends put different things at argv[0]: node's executable
-  // path under , the wasm path under wasm, nothing under native.
-  // Start at the first option-looking argument, or just after an executable.
+  // Skip the interpreter or module path when the runtime supplied one. Some
+  // runtimes supply both (node does, as `node <script> ...`), so this looks at
+  // the first two positions rather than assuming a single fixed offset.
   let mut start = 0
-  let mut scan = 0
-  while scan < args.length() {
-    if args[scan].has_prefix("--") {
-      start = scan
-      break
-    }
-    scan = scan + 1
-  }
-  if start == 0 && args.length() > 0 && args[0].contains(".exe") {
-    start = 1
+  while start < args.length() &&
+        start < 2 &&
+        looks_like_program_path(args[start]) {
+    start = start + 1
   }
   let argv : Array[String] = []
   let mut i = start
@@ -74,9 +92,7 @@ fn main {
       return
     }
     let path = argv[1]
-    let source = try {
-      @fs.read_file_to_string(path)
-    } catch {
+    let source = @fs.read_file_to_string(path) catch {
       _ => {
         println("cannot read \{path}")
         return
@@ -95,7 +111,8 @@ fn main {
     while k < argv.length() {
       let value = argv[k]
       match @dt.validate_named(schema, type_name, value) {
-        Ok(v) => println("valid    \{type_name}  \{value}  =>  \{@dt.lexical_text(v)}")
+        Ok(v) =>
+          println("valid    \{type_name}  \{value}  =>  \{@dt.lexical_text(v)}")
         Err(e) => {
           println("INVALID  \{type_name}  \{value}  =>  \{e}")
           bad = bad + 1
@@ -110,10 +127,6 @@ fn main {
     }
     return
   }
-  if argv[0] == "--xml" {
-    println("--xml needs a file reader; run the datatype checks instead")
-    return
-  }
   if argv.length() < 2 {
     usage()
     return
@@ -124,7 +137,8 @@ fn main {
   while k < argv.length() {
     let value = argv[k]
     match @dt.validate_builtin(type_name, value) {
-      Ok(v) => println("valid    \{type_name}  \{value}  =>  \{@dt.lexical_text(v)}")
+      Ok(v) =>
+        println("valid    \{type_name}  \{value}  =>  \{@dt.lexical_text(v)}")
       Err(e) => {
         println("INVALID  \{type_name}  \{value}  =>  \{e}")
         failures = failures + 1

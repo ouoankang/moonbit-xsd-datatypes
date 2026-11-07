@@ -1,6 +1,6 @@
 import {
-  "moonbitlang/core/debug" @debug,
-  "ouoankang/moonbit-xsd-datatypes/src/xml" @xml,
+  "moonbitlang/core/debug",
+  "ouoankang/moonbit-xsd-datatypes/src/xml",
 }
 
 pkgtype(kind: "library")

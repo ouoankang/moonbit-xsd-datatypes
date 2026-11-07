@@ -8,9 +8,9 @@
 ///|
 /// The facet set attached to a simple type. `None` means "not constrained".
 pub(all) struct Facets {
-  length : Int?
-  min_length : Int?
-  max_length : Int?
+  length : Int32?
+  min_length : Int32?
+  max_length : Int32?
   /// Patterns grouped by the restriction step that declared them.
   ///
   /// Within a group they are OR-ed: any one matching satisfies that step.
@@ -23,11 +23,12 @@ pub(all) struct Facets {
   max_exclusive : XsdValue?
   min_inclusive : XsdValue?
   min_exclusive : XsdValue?
-  total_digits : Int?
-  fraction_digits : Int?
+  total_digits : Int32?
+  fraction_digits : Int32?
 } derive(Debug)
-pub extend Facets with @debug.Debug::{to_repr}
 
+///|
+pub extend Facets with @debug.Debug::{to_repr}
 
 ///|
 /// An empty facet set.
@@ -65,7 +66,7 @@ fn length_is_deprecated(v : XsdValue) -> Bool {
 
 ///|
 /// The quantity that `length` measures, or None when the type has no length.
-fn measured_length(v : XsdValue) -> Int? {
+fn measured_length(v : XsdValue) -> Int32? {
   match v {
     Str(s) => Some(count_code_points(s))
     Bin(b) => Some(b.len_bytes)
@@ -88,10 +89,14 @@ pub fn value_eq(a : XsdValue, b : XsdValue) -> Bool {
         (Finite(dx), Finite(dy)) => dx == dy
         (PosInf, PosInf) => true
         (NegInf, NegInf) => true
-        (NotANumber, NotANumber) => true
+        // NaN is not equal to anything, itself included. Returning true here
+        // would make `enumeration value="NaN"` accept NaN, which both IEEE 754
+        // and XSD 1.0 Part 2 §3.2.5 rule out.
+        (NotANumber, NotANumber) => false
         _ => false
       }
-    (Temporal(x), Temporal(y)) => x.kind == y.kind && compare_temporal(x, y) == Some(0)
+    (Temporal(x), Temporal(y)) =>
+      x.kind == y.kind && compare_temporal(x, y) == Some(0)
     (Dur(x), Dur(y)) =>
       x.negative == y.negative &&
       x.months == y.months &&
@@ -110,7 +115,7 @@ pub fn value_eq(a : XsdValue, b : XsdValue) -> Bool {
 /// `string`, `boolean`, `QName`, `NOTATION`, and `anyURI` have no order in XSD,
 /// which is why `minInclusive` on them is a schema error rather than a runtime
 /// one.
-pub fn value_cmp(a : XsdValue, b : XsdValue) -> Int? {
+pub fn value_cmp(a : XsdValue, b : XsdValue) -> Int32? {
   match (a, b) {
     (Dec(x), Dec(y)) => Some(compare_decimal(x, y))
     (Flt(x), Flt(y)) => Some(compare_floats(x, y))
@@ -128,8 +133,8 @@ pub fn value_cmp(a : XsdValue, b : XsdValue) -> Int? {
 ///|
 /// Order on floats follows IEEE 754 total order enough for validation:
 /// -INF < finite < +INF < NaN.
-fn compare_floats(a : FloatValue, b : FloatValue) -> Int {
-  let rank = fn(f : FloatValue) -> Int {
+fn compare_floats(a : FloatValue, b : FloatValue) -> Int32 {
+  let rank = fn(f : FloatValue) -> Int32 {
     match f {
       NegInf => 0
       Finite(_) => 1
@@ -143,14 +148,7 @@ fn compare_floats(a : FloatValue, b : FloatValue) -> Int {
     return if ra < rb { -1 } else { 1 }
   }
   match (a, b) {
-    (Finite(x), Finite(y)) =>
-      if x < y {
-        -1
-      } else if x > y {
-        1
-      } else {
-        0
-      }
+    (Finite(x), Finite(y)) => if x < y { -1 } else if x > y { 1 } else { 0 }
     _ => 0
   }
 }
@@ -163,7 +161,7 @@ fn compare_floats(a : FloatValue, b : FloatValue) -> Int {
 /// is defined only where every reference date agrees, so this probes the same
 /// four dates a reference implementation uses and reports None when the answer
 /// depends on the date. The ordering facets treat None as false.
-fn compare_durations(a : Duration, b : Duration) -> Int? {
+fn compare_durations(a : Duration, b : Duration) -> Int32? {
   // Same month count, or no months at all: the second parts decide exactly.
   if a.months == b.months || (a.months == 0 && b.months == 0) {
     return Some(compare_seconds_part(a, b))
@@ -177,7 +175,7 @@ fn compare_durations(a : Duration, b : Duration) -> Int? {
   // Mixed. Probe dates spread across the calendar so that a February and a
   // 31-day month are both exercised.
   let probes = [(1696, 9, 1), (1697, 2, 1), (1903, 3, 1), (1903, 7, 1)]
-  let mut result : Int? = None
+  let mut result : Int32? = None
   for probe in probes {
     let base = days_from_civil(probe.0, probe.1, probe.2)
     let ea = duration_endpoint_seconds(base, a)
@@ -185,10 +183,7 @@ fn compare_durations(a : Duration, b : Duration) -> Int? {
     let c = if ea < eb { -1 } else if ea > eb { 1 } else { 0 }
     match result {
       None => result = Some(c)
-      Some(prev) =>
-        if prev != c {
-          return None
-        }
+      Some(prev) => if prev != c { return None }
     }
   }
   result
@@ -220,7 +215,7 @@ fn is_zero_seconds(d : Duration) -> Bool {
 
 ///|
 /// Compares the second part, honouring the sign of each duration.
-fn compare_seconds_part(a : Duration, b : Duration) -> Int {
+fn compare_seconds_part(a : Duration, b : Duration) -> Int32 {
   let c = compare_decimal(a.seconds, b.seconds)
   if c == 0 {
     return 0
@@ -262,7 +257,11 @@ fn is_nan_value(v : XsdValue) -> Bool {
 
 ///|
 /// Applies every facet present in `f` to `v`.
-pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValErr] {
+pub fn apply_facets(
+  v : XsdValue,
+  raw : String,
+  f : Facets,
+) -> Result[Unit, ValErr] {
   let measured = measured_length(v)
   let skip_length = length_is_deprecated(v)
   match f.length {
@@ -270,13 +269,13 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
       if skip_length {
         ()
       } else {
-      match measured {
-        Some(actual) =>
-          if actual != want {
-            return Err(Facet("length is \{actual}, expected \{want}"))
-          }
-        None => return Err(Facet("length does not apply to this type"))
-      }
+        match measured {
+          Some(actual) =>
+            if actual != want {
+              return Err(Facet("length is \{actual}, expected \{want}"))
+            }
+          None => return Err(Facet("length does not apply to this type"))
+        }
       }
     None => ()
   }
@@ -285,13 +284,13 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
       if skip_length {
         ()
       } else {
-      match measured {
-        Some(actual) =>
-          if actual < want {
-            return Err(Facet("length \{actual} is below minLength \{want}"))
-          }
-        None => return Err(Facet("minLength does not apply to this type"))
-      }
+        match measured {
+          Some(actual) =>
+            if actual < want {
+              return Err(Facet("length \{actual} is below minLength \{want}"))
+            }
+          None => return Err(Facet("minLength does not apply to this type"))
+        }
       }
     None => ()
   }
@@ -300,13 +299,13 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
       if skip_length {
         ()
       } else {
-      match measured {
-        Some(actual) =>
-          if actual > want {
-            return Err(Facet("length \{actual} is above maxLength \{want}"))
-          }
-        None => return Err(Facet("maxLength does not apply to this type"))
-      }
+        match measured {
+          Some(actual) =>
+            if actual > want {
+              return Err(Facet("length \{actual} is above maxLength \{want}"))
+            }
+          None => return Err(Facet("maxLength does not apply to this type"))
+        }
       }
     None => ()
   }
@@ -367,10 +366,7 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
   match f.min_inclusive {
     Some(bound) =>
       match value_cmp(v, bound) {
-        Some(c) =>
-          if c < 0 {
-            return Err(Facet("value is below minInclusive"))
-          }
+        Some(c) => if c < 0 { return Err(Facet("value is below minInclusive")) }
         None =>
           return Err(Facet("value is not ordered with respect to minInclusive"))
       }
@@ -379,10 +375,7 @@ pub fn apply_facets(v : XsdValue, raw : String, f : Facets) -> Result[Unit, ValE
   match f.max_inclusive {
     Some(bound) =>
       match value_cmp(v, bound) {
-        Some(c) =>
-          if c > 0 {
-            return Err(Facet("value is above maxInclusive"))
-          }
+        Some(c) => if c > 0 { return Err(Facet("value is above maxInclusive")) }
         None =>
           return Err(Facet("value is not ordered with respect to maxInclusive"))
       }
@@ -459,7 +452,12 @@ pub fn lexical_text(v : XsdValue) -> String {
       }
     Bin(b) => b.canonical
     Uri(s) => s
-    Qn(q) => if q.prefix.is_empty() { q.local_name } else { "\{q.prefix}:\{q.local_name}" }
+    Qn(q) =>
+      if q.prefix.is_empty() {
+        q.local_name
+      } else {
+        "\{q.prefix}:\{q.local_name}"
+      }
     Not(s) => s
     Temporal(t) => temporal_text(t)
     Dur(d) => duration_text(d)
@@ -467,7 +465,7 @@ pub fn lexical_text(v : XsdValue) -> String {
 }
 
 ///|
-fn pad2(n : Int) -> String {
+fn pad2(n : Int32) -> String {
   if n < 10 {
     "0\{n}"
   } else {
@@ -496,7 +494,7 @@ fn year_text(t : Temporal) -> String {
 fn tz_text(t : Temporal) -> String {
   match t.tz {
     None => ""
-    Some(m) => {
+    Some(m) =>
       if m == 0 {
         "Z"
       } else {
@@ -504,7 +502,6 @@ fn tz_text(t : Temporal) -> String {
         let sign = if m < 0 { "-" } else { "+" }
         "\{sign}\{pad2(abs / 60)}:\{pad2(abs % 60)}"
       }
-    }
   }
 }
 

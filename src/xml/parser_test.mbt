@@ -41,7 +41,9 @@ test "default namespace does not apply to attributes" {
 
 ///|
 test "prefixed names resolve through xmlns:prefix" {
-  let el = must_parse("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"/>")
+  let el = must_parse(
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\"/>",
+  )
   assert_eq(el.name.uri, "http://www.w3.org/2001/XMLSchema")
   assert_eq(el.name.local_name, "schema")
   assert_eq(el.name.prefix, "xs")

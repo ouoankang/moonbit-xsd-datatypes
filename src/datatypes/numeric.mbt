@@ -11,10 +11,11 @@ fn dec_lit(s : String) -> Decimal {
 }
 
 ///|
+
 ///|
 /// 10^n for the range a float can hold. Values outside it saturate, which is
 /// what the caller wants: an exponent past 308 is infinity, past -324 is zero.
-fn pow10_double(n : Int) -> Double {
+fn pow10_double(n : Int32) -> Double {
   if n > 400 {
     return 1.0e400
   }
@@ -53,7 +54,7 @@ pub fn decimal_to_double(s : String) -> Double {
   while i < n {
     let c = code_at_b(s, i)
     if c >= 48 && c <= 57 {
-      digits.write_char(Int::unsafe_to_char(c))
+      digits.write_char(Int32::unsafe_to_char(c))
       if !seen_point {
         point_at = point_at + 1
       }
@@ -146,12 +147,13 @@ pub fn decimal_to_double(s : String) -> Double {
   }
 }
 
+///|
 /// Parses `float` (bits = 32) or `double` (bits = 64).
 ///
 /// `INF`, `+INF`, `-INF` and `NaN` are the only non-numeric forms, and they are
 /// case-sensitive. Finite values keep their digits in a `Decimal` so that
 /// enumeration and ordering see the value the document actually wrote.
-fn parse_float_value(s : String, bits : Int) -> Result[FloatValue, ValErr] {
+fn parse_float_value(s : String, bits : Int32) -> Result[FloatValue, ValErr] {
   if s == "NaN" {
     return Ok(NotANumber)
   }
@@ -214,7 +216,11 @@ fn parse_float_value(s : String, bits : Int) -> Result[FloatValue, ValErr] {
   // xs:float is binary32. Rounding through Float is not cosmetic: 0.1 as a
   // float and 0.1 as a double are different values, and the facet comparisons
   // have to see the one the type actually denotes.
-  let value = if bits == 32 { Float::from_double(parsed).to_double() } else { parsed }
+  let value = if bits == 32 {
+    Float::from_double(parsed).to_double()
+  } else {
+    parsed
+  }
   Ok(Finite(value))
 }
 

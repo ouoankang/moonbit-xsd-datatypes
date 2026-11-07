@@ -4,8 +4,9 @@
 
 给定一个 XML Schema 简单类型和一个词法值，判定这个值是否合法，并给出值空间的规范化结果。
 
-> **状态：v0.2.0。** 44 个内置类型、12 个 facet、三种 variety、XSD 正则方言、
-> 文档解析都已落地；W3C 套件 974 个用例全部一致。不做内容模型，边界写在「已知限制」里。
+> **状态：v0.3.0。** 44 个内置类型、12 个 facet、三种 variety、XSD 正则方言、
+> 文档解析都已落地；W3C 套件 864 个用例全部一致，其中 **354 个是应当被拒绝的非法值**。
+> 不做内容模型，边界写在「已知限制」里。
 
 ---
 
@@ -53,7 +54,7 @@ OOXML / Office 12 个、XPath 2 个、格式化与工具 32 个。但描述里�
 
 ```bash
 moon check --deny-warn     # 零警告
-moon test                  # 73 个测试（72 单测 + 1 个 W3C 一致性）
+moon test                  # 93 个测试（92 单测 + 1 个 W3C 一致性）
 
 # 直接验证内置类型
 moon run --target js cmd/main -- dateTime 2026-02-30T00:00:00
@@ -66,10 +67,10 @@ moon run --target js cmd/main -- --schema examples/invoice.xsd amount 100.50 100
 
 ```text
 $ moon run --target js cmd/main -- --schema examples/invoice.xsd amount 100.50 99999999.99 100000000 1.234
-valid    amount  100.50       =>  100.5
+valid    amount  100.50  =>  100.5
 valid    amount  99999999.99  =>  99999999.99
-INVALID  amount  100000000    =>  facet violation: value is above maxInclusive
-INVALID  amount  1.234        =>  facet violation: fractionDigits 3 exceeds 2
+INVALID  amount  100000000  =>  facet violation: value is above maxInclusive
+INVALID  amount  1.234  =>  facet violation: fractionDigits 3 exceeds 2
 2 value(s) invalid
 ```
 
@@ -116,15 +117,24 @@ INVALID  amount  1.234        =>  facet violation: fractionDigits 3 exceeds 2
 - 未绑定的前缀是**错误**，不能静默当成空 URI；
 - 不同前缀绑定到同一 URI 就是同一个名字，前缀本身不参与身份判定。
 
+## 两处按 errata 修正的词法
+
+`xs:gMonth` 的初版 XSD 1.0 印成了 `--MM--`，erratum E2-12 更正为 `--MM`，并注明
+"No other formats are allowed"。所以 `--12` 合法，`--12--` 非法——尽管不少书和
+老实现里写的是后者。Saxon 9.2 专门删掉了对 `--MM--` 的兼容，理由与此相同。
+
+同一类修正还有年份：XSD 1.0 没有 0000 年，`-0001` 才是公元前 1 年，`0000-01-01`
+不是合法词法形式。这两条都容易按"形状对就行"放过去，测试里各钉了一条。
+
 ## 测试
 
-58 个单元测试，覆盖词法空间的边界而非 happy path：`xs:integer` 拒绝 `1.0`、
+92 个单元测试，覆盖词法空间的边界而非 happy path：`xs:integer` 拒绝 `1.0`、
 2 月 30 日是词法合法但值非法、`INF` 区分大小写、`24:00:00` 是 24 点唯一合法值、
 `pattern` 全串锚定（`A1` 不匹配 `[A-Z]+`）。另有一个跑 W3C 套件的测试。
 
 ```text
-Total tests: 73, passed: 73, failed: 0.
-w3c cases: 974/974 agreed, 0 schema errors
+Total tests: 93, passed: 93, failed: 0.
+w3c cases: 864/864 agreed, 0 schema errors
 ```
 
 ## 已知限制
@@ -132,9 +142,11 @@ w3c cases: 974/974 agreed, 0 schema errors
 - **拒绝 DOCTYPE**：不处理内部子集与外部实体。XSD 文档不需要它们，静默忽略反而
   危险，所以显式报错。
 - **年份上限 9999**：更大的年份在词法上合法，但这里的日历运算按 4 位年份处理。
-- **Unicode 类别是近似实现**：`\p{L}`、`\d` 等按主要区间判断，未加载完整 UCD 表。
-  边界用例（生僻文字的类别）可能与规范有差异。
+- **`\p{L}` 仍是近似实现**：按主要区间判断，未加载完整 UCD 表，生僻文字的类别可能
+  与规范有差异。（`\d` 已改为 Unicode 15.1 的全部 63 个 Nd 区间。）
 - **字符类减法**只支持一层。
+- **atomic `QName` / `NOTATION` 上的 `length` 系列不判**：规范称其 deprecated，
+  从未定义"长度"是什么。这意味着这两类的非法长度同样不会被拒绝，见下文。
 - **不做内容模型**：元素能不能出现、顺序对不对，不在本项目范围内。
 - 不做 XML 1.0 完整的 well-formedness 校验（重复属性、非法字符等）。
 
@@ -142,7 +154,7 @@ w3c cases: 974/974 agreed, 0 schema errors
 
 - 内容模型（`sequence` / `choice` / `all`）—— [#1](https://github.com/ouoankang/moonbit-xsd-datatypes/issues/1)
 - 完整的 Unicode 类别表 —— [#2](https://github.com/ouoankang/moonbit-xsd-datatypes/issues/2)
-- 从 974 个抽样用例扩到全量 19217 个 —— [#3](https://github.com/ouoankang/moonbit-xsd-datatypes/issues/3)
+- 从 864 个抽样用例扩到全量 19217 个 —— [#3](https://github.com/ouoankang/moonbit-xsd-datatypes/issues/3)
 
 ## 外部一致性证据
 
@@ -150,25 +162,43 @@ w3c cases: 974/974 agreed, 0 schema errors
 官方不提供 test driver，README 里明确写着 "No test driver is supplied"，所以
 driver 也在本项目范围内。
 
-从 NIST 的 datatypes 贡献里取了 **510 个 (variety, type, facet) 组合**，每个组合
-取一个代表性测试组，加一个 valid 和一个 invalid 实例，共 **974 个用例**。
+从 NIST 的 datatypes 贡献里取 **510 个 (variety, type, facet) 组合**。这个贡献分
+两半，各自只装一种结论：
+
+| 分区 | 测试组 | 实例 | 标注 |
+| --- | --- | --- | --- |
+| `SV-IV` | 2193 | 10609 | 全部 valid |
+| `SV-II` | 1760 | 8608 | 全部 invalid |
+
+只取其中一个分区，用例集就是单向的：全 valid 的那一半只能证明"没有误杀合法值"，
+一个永远返回合法的空壳实现同样能拿满分。所以 `scripts/gen_w3c.py` 按组合把两半
+配对——valid 取自 `SV-IV`，invalid 取自 `SV-II`，每条用例各带自己的 schema：
 
 ```text
-w3c cases: 974/974 agreed, 0 schema errors
+510 个组合，其中 354 个两边都有
+864 个用例 = 510 valid + 354 invalid
 ```
 
-**完全没有 100% 之前，有 2 个用例一直不一致，值得说明怎么解决的。** 它们用
-`length` facet 约束 `xs:QName`：schema 写 `length="1"`，而 NIST 把一个 16 字符的
-QName 标为 valid。查规范才明白为什么——XSD 1.0 和 1.1 都写着：
+```text
+w3c cases: 864/864 agreed, 0 schema errors
+```
+
+剩下 156 个组合没有对应的 invalid 实例（`whiteSpace` 这类 facet 不产生非法值，
+套件本身不提供反面用例），它们在计数里只出现一次。
+
+**唯一一处主动跳过。** `length`、`minLength`、`maxLength` 用在 `QName` /
+`NOTATION` 上是 deprecated，而两版规范都没定义 QName 的"长度"是什么（它的值空间
+是三元组，不是字符串）。套件把 `length="1"` 下的 16 字符 QName 标为 valid：
 
 > The use of `length`, `minLength` and `maxLength` on QName, NOTATION, and
 > datatypes derived from them is deprecated.
 
-而且两版都没定义 QName 的"长度"到底是什么（它的值空间是三元组，不是字符串）。
-规范既然称其为 deprecated 又不给度量方式，实现就没有可执行的规则；套件的 valid
-标注反映的正是主流实现的行为。所以本实现在 QName / NOTATION 上跳过这三个 facet，
-并在 `facets.mbt` 里写明依据。这不是为了让数字好看而放宽——是按规范原文处理，
-并且有注释可查。
+既然称其 deprecated 又不给度量方式，实现就没有可执行的规则，所以 atomic
+`QName` / `NOTATION` 上跳过这三个 facet，依据写在 `facets.mbt` 的
+`length_is_deprecated` 里。代价说清楚：这两类的**非法长度同样不会被拒绝**。
+套件里没有这类反面用例，所以外部证据覆盖不到它。
+
+（`list` 形式的 `QName` 不受影响：`length` 数的是项数，那是定义明确的。）
 
 数据不随仓库分发：`scripts/gen_w3c.py` 按需下载，`testdata/` 已排除。仓库里只有
 生成后的 `src/datatypes/w3c_cases.mbt`，其许可与来源见 `NOTICE`。要复现：
@@ -189,7 +219,7 @@ moon test
 | XML Schema 正则方言 | 完成（Unicode 类别为近似） |
 | XSD 文档解析（simpleType / element，含匿名类型） | 完成 |
 | CLI（内置类型 / 读 XSD 文件） | 完成 |
-| W3C 测试套件 driver | 完成，974/974 一致 |
+| W3C 测试套件 driver | 完成，864/864 一致（510 valid + 354 invalid） |
 
 ## 许可
 

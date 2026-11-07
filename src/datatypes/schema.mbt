@@ -16,12 +16,13 @@ pub struct Schema {
   elements : Map[String, SimpleType]
 } derive(Debug)
 
+///|
 pub extend Schema with @debug.Debug::{to_repr}
 
 ///|
 /// An empty schema.
 pub fn empty_schema() -> Schema {
-  { declared: Map([], capacity=0), elements: Map([], capacity=0) }
+  { declared: Map([], capacity=0), elements: Map([], capacity=0), }
 }
 
 ///|
@@ -50,7 +51,10 @@ fn facet_value(el : @xml.XmlElement) -> String? {
 /// `nist:someType` (a type declared in this document). Only the last needs a
 /// lookup, and a miss falls back to the builtin table so the error surfaces
 /// when the value is parsed, where the message names the type.
-fn resolve_type(type_ref : String, schema : Schema) -> Result[SimpleType, ValErr] {
+fn resolve_type(
+  type_ref : String,
+  schema : Schema,
+) -> Result[SimpleType, ValErr] {
   let local_name = match type_ref.find(":") {
     Some(i) => type_ref[i + 1:type_ref.length()].to_owned()
     None => type_ref
@@ -80,7 +84,7 @@ fn resolve_type(type_ref : String, schema : Schema) -> Result[SimpleType, ValErr
 
 ///|
 /// Non-negative integer used by the digit and length facets.
-fn parse_uint_strict(s : String) -> Int? {
+fn parse_uint_strict(s : String) -> Int32? {
   let t = ws_collapse(s)
   if t.is_empty() {
     return None
@@ -108,17 +112,17 @@ fn read_facets(
   restriction : @xml.XmlElement,
   base : String,
 ) -> Result[Facets, ValErr] {
-  let mut length : Int? = None
-  let mut min_length : Int? = None
-  let mut max_length : Int? = None
+  let mut length : Int32? = None
+  let mut min_length : Int32? = None
+  let mut max_length : Int32? = None
   let patterns : Array[String] = Array(capacity=0)
   let enumeration : Array[XsdValue] = Array(capacity=0)
   let mut max_inclusive : XsdValue? = None
   let mut max_exclusive : XsdValue? = None
   let mut min_inclusive : XsdValue? = None
   let mut min_exclusive : XsdValue? = None
-  let mut total_digits : Int? = None
-  let mut fraction_digits : Int? = None
+  let mut total_digits : Int32? = None
+  let mut fraction_digits : Int32? = None
   for node in restriction.children {
     match node {
       Text(_) => ()
@@ -199,7 +203,11 @@ fn read_facets(
     length,
     min_length,
     max_length,
-    patterns: if patterns.is_empty() { [] } else { [patterns] },
+    patterns: if patterns.is_empty() {
+      []
+    } else {
+      [patterns]
+    },
     enumeration,
     max_inclusive,
     max_exclusive,
@@ -402,14 +410,13 @@ fn collect_elements(
 ) -> Result[Unit, ValErr] {
   if el.name.uri == xsd_namespace && el.name.local_name == "element" {
     match @xml.attr_value(el, "", "name") {
-      Some(name) => {
+      Some(name) =>
         match element_simple_type(el, schema) {
           Ok(Some(t)) => schema.elements.set(name, t)
           // No simple type (an element with a complexType, or a ref): skip it.
           Ok(None) => ()
           Err(e) => return Err(e)
         }
-      }
       None => ()
     }
   }
@@ -450,7 +457,11 @@ pub fn load_schema(source : String) -> Result[Schema, ValErr] {
 
 ///|
 /// Validates a value against a named type declared in the schema.
-pub fn validate_named(schema : Schema, type_name : String, raw : String) -> ValResult {
+pub fn validate_named(
+  schema : Schema,
+  type_name : String,
+  raw : String,
+) -> ValResult {
   match schema.declared.get(type_name) {
     Some(t) => check_value(t, raw)
     None => Err(Lexical("no such type: \{type_name}"))
@@ -459,7 +470,11 @@ pub fn validate_named(schema : Schema, type_name : String, raw : String) -> ValR
 
 ///|
 /// Validates the character content of a named element against its type.
-pub fn validate_element(schema : Schema, element_name : String, raw : String) -> ValResult {
+pub fn validate_element(
+  schema : Schema,
+  element_name : String,
+  raw : String,
+) -> ValResult {
   match schema.elements.get(element_name) {
     Some(t) => check_value(t, raw)
     None => Err(Lexical("no such element: \{element_name}"))

@@ -131,7 +131,10 @@ test "a non-schema root is rejected" {
 
 ///|
 test "malformed XML is rejected" {
-  match @datatypes.load_schema("<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">") {
+  match
+    @datatypes.load_schema(
+      "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">",
+    ) {
     Ok(_) => abort("expected an error")
     Err(_) => ()
   }

@@ -25,7 +25,7 @@ fn parse_qname_value(s : String) -> Result[QNameValue, ValErr] {
     if !is_ncname(s) {
       return Err(Lexical("invalid local name in QName"))
     }
-    let q : QNameValue = { prefix: "", local_name: s }
+    let q : QNameValue = { prefix: "", local_name: s, }
     return Ok(q)
   }
   let prefix = s[0:colon].to_owned()
@@ -36,7 +36,7 @@ fn parse_qname_value(s : String) -> Result[QNameValue, ValErr] {
   if !is_ncname(local_name) {
     return Err(Lexical("invalid local name in QName"))
   }
-  let q : QNameValue = { prefix, local_name }
+  let q : QNameValue = { prefix, local_name, }
   Ok(q)
 }
 
@@ -173,59 +173,52 @@ pub fn parse_builtin(type_name : String, raw : String) -> ValResult {
   match type_name {
     "normalizedString" => Ok(Str(s))
     "token" => Ok(Str(s))
-    "language" => {
+    "language" =>
       if is_language(s) {
         Ok(Str(s))
       } else {
         Err(Lexical("not a language tag"))
       }
-    }
-    "NMTOKEN" => {
+    "NMTOKEN" =>
       if is_nmtoken(s) {
         Ok(Str(s))
       } else {
         Err(Lexical("not an NMTOKEN"))
       }
-    }
-    "Name" => {
+    "Name" =>
       if !s.is_empty() && is_name_start(code_at_b(s, 0)) {
         Ok(Str(s))
       } else {
         Err(Lexical("not a Name"))
       }
-    }
-    "NCName" => {
+    "NCName" =>
       if is_ncname(s) {
         Ok(Str(s))
       } else {
         Err(Lexical("not an NCName"))
       }
-    }
-    "ID" => {
+    "ID" =>
       if is_ncname(s) {
         Ok(Str(s))
       } else {
         Err(Lexical("not an NCName"))
       }
-    }
-    "IDREF" => {
+    "IDREF" =>
       if is_ncname(s) {
         Ok(Str(s))
       } else {
         Err(Lexical("not an NCName"))
       }
-    }
-    "ENTITY" => {
+    "ENTITY" =>
       if is_ncname(s) {
         Ok(Str(s))
       } else {
         Err(Lexical("not an NCName"))
       }
-    }
     "NMTOKENS" => check_token_list(s, "NMTOKEN")
     "IDREFS" => check_token_list(s, "IDREF")
     "ENTITIES" => check_token_list(s, "ENTITY")
-    "boolean" => {
+    "boolean" =>
       if s == "true" || s == "1" {
         Ok(Bool(true))
       } else if s == "false" || s == "0" {
@@ -233,19 +226,16 @@ pub fn parse_builtin(type_name : String, raw : String) -> ValResult {
       } else {
         Err(Lexical("boolean must be true, false, 1, or 0"))
       }
-    }
-    "decimal" => {
+    "decimal" =>
       match parse_decimal(s) {
         Ok(d) => Ok(Dec(d))
         Err(e) => Err(e)
       }
-    }
-    "integer" => {
+    "integer" =>
       match parse_integer(s) {
         Ok(d) => Ok(Dec(d))
         Err(e) => Err(e)
       }
-    }
     "long" => bounded_integer(s, "long")
     "int" => bounded_integer(s, "int")
     "short" => bounded_integer(s, "short")
@@ -258,38 +248,33 @@ pub fn parse_builtin(type_name : String, raw : String) -> ValResult {
     "positiveInteger" => bounded_integer(s, "positiveInteger")
     "nonPositiveInteger" => bounded_integer(s, "nonPositiveInteger")
     "negativeInteger" => bounded_integer(s, "negativeInteger")
-    "float" => {
+    "float" =>
       match parse_float_value(s, 32) {
         Ok(f) => Ok(Flt(f))
         Err(e) => Err(e)
       }
-    }
-    "double" => {
+    "double" =>
       match parse_float_value(s, 64) {
         Ok(f) => Ok(Flt(f))
         Err(e) => Err(e)
       }
-    }
-    "hexBinary" => {
+    "hexBinary" =>
       match parse_hex_binary(s) {
         Ok(b) => Ok(Bin(b))
         Err(e) => Err(e)
       }
-    }
-    "base64Binary" => {
+    "base64Binary" =>
       match parse_base64_binary(s) {
         Ok(b) => Ok(Bin(b))
         Err(e) => Err(e)
       }
-    }
     "anyURI" => parse_any_uri(s)
-    "QName" => {
+    "QName" =>
       match parse_qname_value(s) {
         Ok(q) => Ok(Qn(q))
         Err(e) => Err(e)
       }
-    }
-    "NOTATION" => {
+    "NOTATION" =>
       match parse_qname_value(s) {
         Ok(q) =>
           Ok(
@@ -303,13 +288,11 @@ pub fn parse_builtin(type_name : String, raw : String) -> ValResult {
           )
         Err(e) => Err(e)
       }
-    }
-    "duration" => {
+    "duration" =>
       match parse_duration(s) {
         Ok(d) => Ok(Dur(d))
         Err(e) => Err(e)
       }
-    }
     "dateTime" => temporal_value(s, "dateTime")
     "date" => temporal_value(s, "date")
     "time" => temporal_value(s, "time")

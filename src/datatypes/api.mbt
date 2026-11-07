@@ -14,8 +14,9 @@ pub(all) enum SimpleType {
   /// Likewise for union members.
   UnionOf(Array[SimpleType], Facets)
 } derive(Debug)
-pub extend SimpleType with @debug.Debug::{to_repr}
 
+///|
+pub extend SimpleType with @debug.Debug::{to_repr}
 
 ///|
 /// Builds an atomic type with no facets.
@@ -148,7 +149,11 @@ fn check_list(item : SimpleType, raw : String, facets : Facets) -> ValResult {
 }
 
 ///|
-fn check_union(members : Array[SimpleType], raw : String, facets : Facets) -> ValResult {
+fn check_union(
+  members : Array[SimpleType],
+  raw : String,
+  facets : Facets,
+) -> ValResult {
   let mut accepted : XsdValue? = None
   for m in members {
     match check_value(m, raw) {
@@ -217,7 +222,7 @@ pub let xsd_namespace : String = "http://www.w3.org/2001/XMLSchema"
 ///|
 /// Strips an `xs:` / `xsd:` prefix from a type reference and returns the local
 /// name, or None when the reference points outside the built-in namespace.
-pub fn builtin_local_name(reference : String) -> Option[String] {
+pub fn builtin_local_name(reference : String) -> String? {
   let idx = reference.find(":")
   match idx {
     None => Some(reference)

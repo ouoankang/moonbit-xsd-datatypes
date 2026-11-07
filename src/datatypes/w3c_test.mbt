@@ -6,13 +6,13 @@
 ///|
 /// One conformance run result.
 struct W3cRun {
-  total : Int
-  agreed : Int
-  schema_errors : Int
+  total : Int32
+  agreed : Int32
+  schema_errors : Int32
   /// (case index, expected, got) for the first few mismatches.
-  mismatches : Array[(Int, Bool, Bool)]
+  mismatches : Array[(Int32, Bool, Bool)]
   /// (case index, message) for the first few schema failures.
-  schema_failures : Array[(Int, String)]
+  schema_failures : Array[(Int32, String)]
 } derive(Debug)
 
 ///|
@@ -20,8 +20,8 @@ fn run_w3c_cases() -> W3cRun {
   let total = @datatypes.w3c_cases.length()
   let mut agreed = 0
   let mut schema_errors = 0
-  let mismatches : Array[(Int, Bool, Bool)] = Array(capacity=0)
-  let schema_failures : Array[(Int, String)] = Array(capacity=0)
+  let mismatches : Array[(Int32, Bool, Bool)] = Array(capacity=0)
+  let schema_failures : Array[(Int32, String)] = Array(capacity=0)
   let mut i = 0
   for case in @datatypes.w3c_cases {
     let (schema_src, element, value, expected) = case
@@ -46,7 +46,7 @@ fn run_w3c_cases() -> W3cRun {
     }
     i = i + 1
   }
-  { total, agreed, schema_errors, mismatches, schema_failures }
+  { total, agreed, schema_errors, mismatches, schema_failures, }
 }
 
 ///|

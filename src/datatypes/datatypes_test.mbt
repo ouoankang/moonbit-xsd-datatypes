@@ -329,14 +329,14 @@ test "enumeration compares values, not spellings" {
 }
 
 ///|
-test "pattern facet searches rather than anchors" {
-  // XSD's pattern is a search: a value is valid if the expression matches
-  // somewhere inside it.
-  assert_true(@datatypes.xsd_pattern_search("[0-9]+", "abc123def"))
-  assert_false(@datatypes.xsd_pattern_search("[0-9]+", "abcdef"))
-  // Anchoring needs an explicit whole-string match.
+test "pattern facet anchors at both ends" {
+  // XSD 1.0 Part 2 §F anchors every pattern implicitly. A pattern meant to say
+  // "contains" has to spell that out with an explicit `.*`.
   assert_true(@datatypes.xsd_pattern_full_match("[0-9]+", "123"))
   assert_false(@datatypes.xsd_pattern_full_match("[0-9]+", "abc123"))
+  assert_false(@datatypes.xsd_pattern_full_match("[A-Z]+", "A1"))
+  assert_false(@datatypes.xsd_pattern_full_match("[A-Z]+", "1A"))
+  assert_true(@datatypes.xsd_pattern_full_match(".*[A-Z]+.*", "A1"))
 }
 
 ///|
@@ -389,7 +389,10 @@ test "list type counts items for length" {
 
 ///|
 test "union takes the first member that accepts" {
-  let t = @datatypes.make_union([@datatypes.make_atomic("int"), @datatypes.make_atomic("date")], @datatypes.no_facets())
+  let t = @datatypes.make_union(
+    [@datatypes.make_atomic("int"), @datatypes.make_atomic("date")],
+    @datatypes.no_facets(),
+  )
   assert_true(
     match @datatypes.check_value(t, "42") {
       Ok(_) => true
@@ -412,11 +415,13 @@ test "union takes the first member that accepts" {
 
 ///|
 test "temporal ordering respects timezones" {
-  let a = match @datatypes.validate_builtin("dateTime", "2026-01-01T00:00:00Z") {
+  let a = match
+    @datatypes.validate_builtin("dateTime", "2026-01-01T00:00:00Z") {
     Ok(Temporal(t)) => t
     _ => abort("expected a temporal value")
   }
-  let b = match @datatypes.validate_builtin("dateTime", "2026-01-01T08:00:00+08:00") {
+  let b = match
+    @datatypes.validate_builtin("dateTime", "2026-01-01T08:00:00+08:00") {
     Ok(Temporal(t)) => t
     _ => abort("expected a temporal value")
   }
@@ -470,11 +475,15 @@ test "float literals convert to the nearest binary64" {
   assert_true(@datatypes.decimal_to_double("123.456") == 123.456)
   // Both spellings denote the same double.
   assert_true(
-    @datatypes.decimal_to_double("0.1") == @datatypes.decimal_to_double("0.1000000000000000055511151231257827"),
+    @datatypes.decimal_to_double("0.1") ==
+    @datatypes.decimal_to_double("0.1000000000000000055511151231257827"),
   )
   // Extremes saturate rather than wrapping.
   assert_true(@datatypes.decimal_to_double("1e400").is_inf())
   assert_true(@datatypes.decimal_to_double("1e-400") == 0.0)
   assert_true(@datatypes.decimal_to_double("0") == 0.0)
-  assert_true(@datatypes.decimal_to_double("0.000").is_nan() || @datatypes.decimal_to_double("0.000") == 0.0)
+  assert_true(
+    @datatypes.decimal_to_double("0.000").is_nan() ||
+    @datatypes.decimal_to_double("0.000") == 0.0,
+  )
 }

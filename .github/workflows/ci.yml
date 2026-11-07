@@ -38,17 +38,38 @@ jobs:
       - name: Unit tests
         run: moon test --target wasm
 
-      - name: CLI against a real schema
-        # End to end: read examples/invoice.xsd, validate four amounts that sit
-        # on both sides of the maxInclusive and fractionDigits boundaries.
+      - name: CLI validates against a real schema
+        # Assert the exact lines rather than the exit status. This tool does not
+        # set one, and a mis-parsed argv prints INVALID for every input, so a
+        # grep for "INVALID" alone passes on a broken build.
         run: |
-          moon run --target js cmd/main -- --schema examples/invoice.xsd amount 100.50 99999999.99
-          moon run --target js cmd/main -- --schema examples/invoice.xsd issueDate 2026-02-28 2024-02-29
-
-      - name: Invalid values are rejected
-        # The CLI prints INVALID and keeps going; this step fails only if a
-        # value that must be rejected comes back valid.
-        run: |
-          out=$(moon run --target js cmd/main -- --schema examples/invoice.xsd amount 100000000 1.234 || true)
+          out=$(moon run --target js cmd/main -- --schema examples/invoice.xsd amount 100.50 99999999.99)
           echo "$out"
-          echo "$out" | grep -q "INVALID" || (echo "expected at least one INVALID line" && exit 1)
+          echo "$out" | grep -qxF 'valid    amount  100.50  =>  100.5'
+          echo "$out" | grep -qxF 'valid    amount  99999999.99  =>  99999999.99'
+          ! echo "$out" | grep -q INVALID
+
+      - name: Invalid values are rejected, for the stated reason
+        run: |
+          out=$(moon run --target js cmd/main -- --schema examples/invoice.xsd amount 100000000 1.234)
+          echo "$out"
+          echo "$out" | grep -qxF 'INVALID  amount  100000000  =>  facet violation: value is above maxInclusive'
+          echo "$out" | grep -qxF 'INVALID  amount  1.234  =>  facet violation: fractionDigits 3 exceeds 2'
+
+      - name: Bare type invocation keeps argv aligned
+        # Regression guard: argv[0] used to leak the script path into the type
+        # name whenever no argument in the call started with `--`.
+        run: |
+          out=$(moon run --target js cmd/main -- dateTime 2026-02-30T00:00:00 2026-02-28T00:00:00)
+          echo "$out"
+          echo "$out" | grep -qF 'INVALID  dateTime  2026-02-30T00:00:00'
+          echo "$out" | grep -qF 'valid    dateTime  2026-02-28T00:00:00'
+          ! echo "$out" | grep -q 'main.js'
+
+      - name: Coverage
+        # Printed for visibility, and held to a floor so the number cannot drift
+        # down unnoticed.
+        run: |
+          moon test --enable-coverage
+          moon coverage report -f summary | tee coverage.txt
+          awk -F'[:/ ]+' '/^Total:/ { if ($2/$3 < 0.80) { printf "coverage %.1f%% is below the 80%% floor\n", 100*$2/$3; exit 1 } }' coverage.txt

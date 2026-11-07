@@ -6,7 +6,7 @@
 // no file depends on one that happens to be compiled later.
 
 ///|
-fn code_at_b(s : String, i : Int) -> Int {
+fn code_at_b(s : String, i : Int32) -> Int32 {
   if i < 0 || i >= s.length() {
     -1
   } else {
@@ -15,12 +15,12 @@ fn code_at_b(s : String, i : Int) -> Int {
 }
 
 ///|
-fn is_digit_b(c : Int) -> Bool {
+fn is_digit_b(c : Int32) -> Bool {
   c >= 48 && c <= 57
 }
 
 ///|
-fn is_ascii_letter(c : Int) -> Bool {
+fn is_ascii_letter(c : Int32) -> Bool {
   (c >= 65 && c <= 90) || (c >= 97 && c <= 122)
 }
 
@@ -28,12 +28,12 @@ fn is_ascii_letter(c : Int) -> Bool {
 /// XML `NameStartChar`. Note that `:` is included: it is a legal character in
 /// `xs:NMTOKEN` and `xs:Name`. `xs:NCName` is the one that excludes it, and that
 /// exclusion is applied in `is_ncname`, not here.
-fn is_name_start(c : Int) -> Bool {
+fn is_name_start(c : Int32) -> Bool {
   is_ascii_letter(c) || c == 95 || c == 58 || c >= 0xC0
 }
 
 ///|
-fn is_name_char(c : Int) -> Bool {
+fn is_name_char(c : Int32) -> Bool {
   is_name_start(c) || is_digit_b(c) || c == 45 || c == 46 || c == 0xB7
 }
 
@@ -48,7 +48,7 @@ pub fn ws_replace(s : String) -> String {
     if c == 9 || c == 10 || c == 13 {
       buf.write_char(' ')
     } else {
-      buf.write_char(Int::unsafe_to_char(c))
+      buf.write_char(Int32::unsafe_to_char(c))
     }
     i = i + 1
   }
@@ -74,7 +74,7 @@ pub fn ws_collapse(s : String) -> String {
         buf.write_char(' ')
         pending_space = false
       }
-      buf.write_char(Int::unsafe_to_char(c))
+      buf.write_char(Int32::unsafe_to_char(c))
       wrote_any = true
     }
     i = i + 1
@@ -141,7 +141,8 @@ fn parse_uint64(s : String) -> Int64? {
   Some(v)
 }
 
-fn parse_uint(s : String) -> Int? {
+///|
+fn parse_uint(s : String) -> Int32? {
   if s.is_empty() {
     return None
   }
@@ -163,7 +164,7 @@ fn parse_uint(s : String) -> Int? {
 
 ///|
 /// Number of Unicode code points, so that an astral character counts as one.
-fn count_code_points(s : String) -> Int {
+fn count_code_points(s : String) -> Int32 {
   let mut n = 0
   let mut i = 0
   while i < s.length() {

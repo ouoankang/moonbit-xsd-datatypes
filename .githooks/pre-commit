@@ -1,3 +1,6 @@
 #!/bin/sh
+# Run before every commit. `moon check` alone catches type errors; the tests are
+# what catch a semantic one, and they are fast enough to belong here.
 
-moon check
+moon check --deny-warn || exit 1
+moon test || exit 1
