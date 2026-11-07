@@ -464,7 +464,13 @@ pub fn validate_named(
 ) -> ValResult {
   match schema.declared.get(type_name) {
     Some(t) => check_value(t, raw)
-    None => Err(Lexical("no such type: \{type_name}"))
+    // An element carrying an anonymous type has no type name to look up, so the
+    // element name is the only handle on it. Types win when both exist.
+    None =>
+      match schema.elements.get(type_name) {
+        Some(t) => check_value(t, raw)
+        None => Err(Lexical("no such type or element: \{type_name}"))
+      }
   }
 }
 

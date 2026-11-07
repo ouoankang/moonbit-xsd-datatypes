@@ -54,7 +54,7 @@ OOXML / Office 12 个、XPath 2 个、格式化与工具 32 个。但描述里�
 
 ```bash
 moon check --deny-warn     # 零警告
-moon test                  # 93 个测试（92 单测 + 1 个 W3C 一致性）
+moon test                  # 96 个测试（95 单测 + 1 个 W3C 一致性）
 
 # 直接验证内置类型
 moon run --target js cmd/main -- dateTime 2026-02-30T00:00:00
@@ -128,12 +128,12 @@ INVALID  amount  1.234  =>  facet violation: fractionDigits 3 exceeds 2
 
 ## 测试
 
-92 个单元测试，覆盖词法空间的边界而非 happy path：`xs:integer` 拒绝 `1.0`、
+95 个单元测试，覆盖词法空间的边界而非 happy path：`xs:integer` 拒绝 `1.0`、
 2 月 30 日是词法合法但值非法、`INF` 区分大小写、`24:00:00` 是 24 点唯一合法值、
 `pattern` 全串锚定（`A1` 不匹配 `[A-Z]+`）。另有一个跑 W3C 套件的测试。
 
 ```text
-Total tests: 93, passed: 93, failed: 0.
+Total tests: 96, passed: 96, failed: 0.
 w3c cases: 864/864 agreed, 0 schema errors
 ```
 

@@ -360,6 +360,25 @@ test "xsd regex dot excludes line terminators" {
 }
 
 ///|
+test "xsd regex name classes and character class subtraction" {
+  // \i is the name-start class and \c the name-character class (Part 2 §F.1).
+  // The suite writes most Name/NCName patterns as [\i-[:]][\c-[:]]*, so the
+  // subtraction idiom has to work, not just the classes.
+  assert_true(@datatypes.xsd_pattern_full_match("\\i\\c*", "a-b.c_d"))
+  assert_true(@datatypes.xsd_pattern_full_match("\\i\\c*", "_x"))
+  assert_false(@datatypes.xsd_pattern_full_match("\\i\\c*", "1abc"))
+  assert_true(@datatypes.xsd_pattern_full_match("\\c{3}", "ab1"))
+  assert_false(@datatypes.xsd_pattern_full_match("\\c{3}", "ab"))
+
+  // [a-z-[aeiou]] is a lowercase consonant.
+  assert_true(@datatypes.xsd_pattern_full_match("[a-z-[aeiou]]+", "bcd"))
+  assert_false(@datatypes.xsd_pattern_full_match("[a-z-[aeiou]]+", "bad"))
+  // The idiom the suite uses: name-start characters minus the colon.
+  assert_true(@datatypes.xsd_pattern_full_match("[\\i-[:]]\\c{2}", "abc"))
+  assert_false(@datatypes.xsd_pattern_full_match("[\\i-[:]]\\c{2}", ":bc"))
+}
+
+///|
 test "list type counts items for length" {
   let f = @datatypes.Facets::{
     length: None,

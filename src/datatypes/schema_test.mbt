@@ -488,3 +488,70 @@ test "backslash-d covers every Nd block" {
   assert_false(accepts(s, "d", "\u{2163}"))
   assert_false(accepts(s, "d", "\u{00B2}"))
 }
+
+///|
+/// The conformance slice never writes an element with an inline simpleType —
+/// every case declares a named type — but real schemas do, so this path is
+/// exercised only here.
+test "an element can carry an inline anonymous simple type" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:element name=\"code\">\n" +
+    "    <xs:simpleType>\n" +
+    "      <xs:restriction base=\"xs:string\">\n" +
+    "        <xs:pattern value=\"[A-Z]{3}\"/>\n" +
+    "      </xs:restriction>\n" +
+    "    </xs:simpleType>\n" +
+    "  </xs:element>\n" +
+    "</xs:schema>"
+  let s = match @datatypes.load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  // An anonymous type has no type name, so it is reachable through the element
+  // it was written on.
+  let ok = fn(v : String) -> Bool {
+    match @datatypes.validate_element(s, "code", v) {
+      Ok(_) => true
+      Err(_) => false
+    }
+  }
+  assert_true(ok("ABC"))
+  assert_false(ok("abc"))
+  assert_false(ok("AB"))
+  // validate_named falls back to the element name, so the CLI can reach it too.
+  assert_true(accepts(s, "code", "ABC"))
+  assert_false(accepts(s, "code", "abc"))
+}
+
+///|
+/// Patterns accumulate down the whole chain, not just from the immediate base.
+test "pattern inheritance walks a three-level restriction chain" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"upper\">\n" +
+    "    <xs:restriction base=\"xs:string\">\n" +
+    "      <xs:pattern value=\"[A-Z]+\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "  <xs:simpleType name=\"three\">\n" +
+    "    <xs:restriction base=\"upper\">\n" +
+    "      <xs:pattern value=\".{3}\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "  <xs:simpleType name=\"threePlus\">\n" +
+    "    <xs:restriction base=\"three\">\n" +
+    "      <xs:pattern value=\"[A-Z]{2,}\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match @datatypes.load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "threePlus", "ABC"))
+  // The middle level caps the length at three.
+  assert_false(accepts(s, "threePlus", "ABCD"))
+  // The first level forbids lowercase.
+  assert_false(accepts(s, "threePlus", "abc"))
+}
