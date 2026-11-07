@@ -285,7 +285,7 @@ fn parse_simple_type(
             Err(e) => return Err(e)
           }
           match item_type {
-            Atomic(n, _) => return Ok(ListOf(n, no_facets()))
+            Atomic(_, _) => return Ok(ListOf(item_type, no_facets()))
             _ => return Err(Lexical("list item type must be atomic"))
           }
         }
@@ -308,7 +308,14 @@ fn parse_simple_type(
           if names.is_empty() {
             return Err(Lexical("union has no members"))
           }
-          return Ok(UnionOf(names, no_facets()))
+          let resolved : Array[SimpleType] = []
+          for n in names {
+            match resolve_type(n, schema) {
+              Ok(mt) => resolved.push(mt)
+              Err(e) => return Err(e)
+            }
+          }
+          return Ok(UnionOf(resolved, no_facets()))
         }
         if variety == "annotation" {
           continue

@@ -120,6 +120,27 @@ fn is_nmtoken(s : String) -> Bool {
 ///|
 /// Parses an unsigned decimal integer, or None when the digits do not fit in
 /// an Int.
+fn parse_uint64(s : String) -> Int64? {
+  if s.is_empty() {
+    return None
+  }
+  let mut v = 0L
+  let mut i = 0
+  while i < s.length() {
+    let c = code_at_b(s, i)
+    if !is_digit_b(c) {
+      return None
+    }
+    let next = v * 10L + (c - 48).to_int64()
+    if next < v {
+      return None
+    }
+    v = next
+    i = i + 1
+  }
+  Some(v)
+}
+
 fn parse_uint(s : String) -> Int? {
   if s.is_empty() {
     return None

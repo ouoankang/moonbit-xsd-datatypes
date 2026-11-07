@@ -71,7 +71,10 @@ pub extend Temporal with Eq::{not_equal, equal}
 /// `P1M` and `P30D` are different values that may or may not compare equal.
 pub struct Duration {
   negative : Bool
-  months : Int
+  /// XSD puts no bound on the month count, so this is 64-bit rather than 32.
+  /// Values past 2^63 months are reported as beyond this implementation's
+  /// range, not as lexical errors.
+  months : Int64
   seconds : Decimal
 } derive(Debug, Eq)
 

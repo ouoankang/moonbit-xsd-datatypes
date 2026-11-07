@@ -185,7 +185,16 @@ fn compare_magnitude(a : Decimal, b : Decimal) -> Int {
 /// gone, so this is exactly the number of significant digits, which is what the
 /// `totalDigits` facet is defined against.
 pub fn total_digits(d : Decimal) -> Int {
-  d.int_part.length() + d.frac_part.length()
+  // Leading zeros are not significant digits: 0.001 has one digit, not four.
+  // The value zero itself counts as one digit, which is what the canonical
+  // "0" carries.
+  let all = "\{d.int_part}\{d.frac_part}"
+  let mut i = 0
+  while i < all.length() && code_at_b(all, i) == 48 {
+    i = i + 1
+  }
+  let n = all.length() - i
+  if n == 0 { 1 } else { n }
 }
 
 ///|

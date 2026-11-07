@@ -500,12 +500,72 @@ fn is_xml_name_char(cp : Int) -> Bool {
 /// Decimal digit in any script, approximated by the blocks that actually appear
 /// in exchanged data.
 fn is_unicode_digit(cp : Int) -> Bool {
-  (cp >= 48 && cp <= 57) ||
-  (cp >= 0x660 && cp <= 0x669) ||
-  (cp >= 0x6F0 && cp <= 0x6F9) ||
-  (cp >= 0x966 && cp <= 0x96F) ||
-  (cp >= 0x9E6 && cp <= 0x9EF) ||
-  (cp >= 0xFF10 && cp <= 0xFF19)
+  // Every Nd block in Unicode 15.1. The earlier version covered six of them,
+  // which made `\d` reject Malayalam and mathematical digits that XSD counts
+  // as decimal digits.
+    (cp >= 0x0030 && cp <= 0x0039) ||
+    (cp >= 0x0660 && cp <= 0x0669) ||
+    (cp >= 0x06F0 && cp <= 0x06F9) ||
+    (cp >= 0x07C0 && cp <= 0x07C9) ||
+    (cp >= 0x0966 && cp <= 0x096F) ||
+    (cp >= 0x09E6 && cp <= 0x09EF) ||
+    (cp >= 0x0A66 && cp <= 0x0A6F) ||
+    (cp >= 0x0AE6 && cp <= 0x0AEF) ||
+    (cp >= 0x0B66 && cp <= 0x0B6F) ||
+    (cp >= 0x0BE6 && cp <= 0x0BEF) ||
+    (cp >= 0x0C66 && cp <= 0x0C6F) ||
+    (cp >= 0x0CE6 && cp <= 0x0CEF) ||
+    (cp >= 0x0D66 && cp <= 0x0D6F) ||
+    (cp >= 0x0DE6 && cp <= 0x0DEF) ||
+    (cp >= 0x0E50 && cp <= 0x0E59) ||
+    (cp >= 0x0ED0 && cp <= 0x0ED9) ||
+    (cp >= 0x0F20 && cp <= 0x0F29) ||
+    (cp >= 0x1040 && cp <= 0x1049) ||
+    (cp >= 0x1090 && cp <= 0x1099) ||
+    (cp >= 0x17E0 && cp <= 0x17E9) ||
+    (cp >= 0x1810 && cp <= 0x1819) ||
+    (cp >= 0x1946 && cp <= 0x194F) ||
+    (cp >= 0x19D0 && cp <= 0x19D9) ||
+    (cp >= 0x1A80 && cp <= 0x1A89) ||
+    (cp >= 0x1A90 && cp <= 0x1A99) ||
+    (cp >= 0x1B50 && cp <= 0x1B59) ||
+    (cp >= 0x1BB0 && cp <= 0x1BB9) ||
+    (cp >= 0x1C40 && cp <= 0x1C49) ||
+    (cp >= 0x1C50 && cp <= 0x1C59) ||
+    (cp >= 0xA620 && cp <= 0xA629) ||
+    (cp >= 0xA8D0 && cp <= 0xA8D9) ||
+    (cp >= 0xA900 && cp <= 0xA909) ||
+    (cp >= 0xA9D0 && cp <= 0xA9D9) ||
+    (cp >= 0xA9F0 && cp <= 0xA9F9) ||
+    (cp >= 0xAA50 && cp <= 0xAA59) ||
+    (cp >= 0xABF0 && cp <= 0xABF9) ||
+    (cp >= 0xFF10 && cp <= 0xFF19) ||
+    (cp >= 0x104A0 && cp <= 0x104A9) ||
+    (cp >= 0x10D30 && cp <= 0x10D39) ||
+    (cp >= 0x11066 && cp <= 0x1106F) ||
+    (cp >= 0x110F0 && cp <= 0x110F9) ||
+    (cp >= 0x11136 && cp <= 0x1113F) ||
+    (cp >= 0x111D0 && cp <= 0x111D9) ||
+    (cp >= 0x112F0 && cp <= 0x112F9) ||
+    (cp >= 0x11450 && cp <= 0x11459) ||
+    (cp >= 0x114D0 && cp <= 0x114D9) ||
+    (cp >= 0x11650 && cp <= 0x11659) ||
+    (cp >= 0x116C0 && cp <= 0x116C9) ||
+    (cp >= 0x11730 && cp <= 0x11739) ||
+    (cp >= 0x118E0 && cp <= 0x118E9) ||
+    (cp >= 0x11950 && cp <= 0x11959) ||
+    (cp >= 0x11C50 && cp <= 0x11C59) ||
+    (cp >= 0x11D50 && cp <= 0x11D59) ||
+    (cp >= 0x11DA0 && cp <= 0x11DA9) ||
+    (cp >= 0x16A60 && cp <= 0x16A69) ||
+    (cp >= 0x16AC0 && cp <= 0x16AC9) ||
+    (cp >= 0x16B50 && cp <= 0x16B59) ||
+    (cp >= 0x1D7CE && cp <= 0x1D7FF) ||
+    (cp >= 0x1E140 && cp <= 0x1E149) ||
+    (cp >= 0x1E2F0 && cp <= 0x1E2F9) ||
+    (cp >= 0x1E4F0 && cp <= 0x1E4F9) ||
+    (cp >= 0x1E950 && cp <= 0x1E959) ||
+    (cp >= 0x1FBF0 && cp <= 0x1FBF9)
 }
 
 ///|

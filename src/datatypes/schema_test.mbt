@@ -372,3 +372,116 @@ test "durations are comparable only when every reference date agrees" {
   // A month is 28..31 days, so this one straddles the bound.
   assert_false(accepts(s, "atLeast30Days", "P1M"))
 }
+
+///|
+/// A list applies its item type's facets to every item. Resolving only the
+/// base name would accept "abc" where the item type demands three capitals.
+test "a list applies the item type's facets" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"code3\">\n" +
+    "    <xs:restriction base=\"xs:string\">\n" +
+    "      <xs:pattern value=\"[A-Z]{3}\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "  <xs:simpleType name=\"codes\">\n" +
+    "    <xs:list itemType=\"code3\"/>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match @datatypes.load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "codes", "ABC DEF"))
+  assert_false(accepts(s, "codes", "abc def"))
+  assert_false(accepts(s, "codes", "ABC DE"))
+}
+
+///|
+/// Subnormals survive parsing. Scaling by 10^324 in one go overflows to
+/// infinity, which turns 5e-324 into zero.
+test "subnormal doubles keep their value" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"positive\">\n" +
+    "    <xs:restriction base=\"xs:double\">\n" +
+    "      <xs:minExclusive value=\"0\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match @datatypes.load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "positive", "5e-324"))
+  assert_true(accepts(s, "positive", "1e-320"))
+  // Below the smallest subnormal, this really is zero.
+  assert_false(accepts(s, "positive", "1e-400"))
+}
+
+///|
+/// duration has no upper bound in XSD, so a large month count is legal and has
+/// to compare as large. Truncating it to 32 bits made it negative.
+test "large durations are legal and compare as large" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"atLeast30Days\">\n" +
+    "    <xs:restriction base=\"xs:duration\">\n" +
+    "      <xs:minInclusive value=\"P30D\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match @datatypes.load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "atLeast30Days", "P2147483648M"))
+  assert_true(accepts(s, "atLeast30Days", "P999999999999Y"))
+}
+
+///|
+/// Leading zeros are not significant. 0.001 carries one digit, not four.
+test "totalDigits ignores leading zeros" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"three\">\n" +
+    "    <xs:restriction base=\"xs:decimal\">\n" +
+    "      <xs:totalDigits value=\"3\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match @datatypes.load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "three", "0.001"))
+  assert_true(accepts(s, "three", "0.0012"))
+  assert_true(accepts(s, "three", "100"))
+  assert_false(accepts(s, "three", "0.0001234"))
+  assert_false(accepts(s, "three", "1234"))
+}
+
+///|
+/// `\d` is Unicode Nd, which is 63 blocks, not the six the first version knew.
+test "backslash-d covers every Nd block" {
+  let src = "<?xml version=\"1.0\"?>\n" +
+    "<xs:schema xmlns:xs=\"http://www.w3.org/2001/XMLSchema\">\n" +
+    "  <xs:simpleType name=\"d\">\n" +
+    "    <xs:restriction base=\"xs:string\">\n" +
+    "      <xs:pattern value=\"\\d+\"/>\n" +
+    "    </xs:restriction>\n" +
+    "  </xs:simpleType>\n" +
+    "</xs:schema>"
+  let s = match @datatypes.load_schema(src) {
+    Ok(v) => v
+    Err(_) => abort("schema did not parse")
+  }
+  assert_true(accepts(s, "d", "123"))
+  assert_true(accepts(s, "d", "\u{0661}\u{0664}\u{0665}"))
+  assert_true(accepts(s, "d", "\u{0D67}\u{0D68}"))
+  assert_true(accepts(s, "d", "\u{1D7DB}"))
+  assert_true(accepts(s, "d", "\u{FF11}\u{FF12}"))
+  // Roman numerals and superscripts are numbers, but not decimal digits.
+  assert_false(accepts(s, "d", "\u{2163}"))
+  assert_false(accepts(s, "d", "\u{00B2}"))
+}

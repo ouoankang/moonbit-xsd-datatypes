@@ -7,8 +7,12 @@
 /// A simple type: the built-in it derives from, its variety, and its facets.
 pub(all) enum SimpleType {
   Atomic(String, Facets)
-  ListOf(String, Facets)
-  UnionOf(Array[String], Facets)
+  /// The item type is kept whole, not by name. A list of a restricted type has
+  /// to apply that type's facets to every item; resolving the name later would
+  /// need the schema, which validation does not have.
+  ListOf(SimpleType, Facets)
+  /// Likewise for union members.
+  UnionOf(Array[SimpleType], Facets)
 } derive(Debug)
 pub extend SimpleType with @debug.Debug::{to_repr}
 
@@ -27,13 +31,13 @@ pub fn make_atomic_with(type_name : String, facets : Facets) -> SimpleType {
 
 ///|
 /// Builds a list type.
-pub fn make_list(item : String, facets : Facets) -> SimpleType {
+pub fn make_list(item : SimpleType, facets : Facets) -> SimpleType {
   ListOf(item, facets)
 }
 
 ///|
 /// Builds a union type.
-pub fn make_union(members : Array[String], facets : Facets) -> SimpleType {
+pub fn make_union(members : Array[SimpleType], facets : Facets) -> SimpleType {
   UnionOf(members, facets)
 }
 
@@ -78,13 +82,13 @@ pub fn check_value(t : SimpleType, raw : String) -> ValResult {
       // set. Their `length` counts items, not characters, so they take the list
       // path rather than the atomic one.
       if type_name == "NMTOKENS" {
-        return check_list("NMTOKEN", raw, facets)
+        return check_list(make_atomic("NMTOKEN"), raw, facets)
       }
       if type_name == "IDREFS" {
-        return check_list("IDREF", raw, facets)
+        return check_list(make_atomic("IDREF"), raw, facets)
       }
       if type_name == "ENTITIES" {
-        return check_list("ENTITY", raw, facets)
+        return check_list(make_atomic("ENTITY"), raw, facets)
       }
       // Facets see the lexical form after the type's whitespace rule, which is
       // what the specification constrains.
@@ -106,14 +110,14 @@ pub fn check_value(t : SimpleType, raw : String) -> ValResult {
 }
 
 ///|
-fn check_list(item : String, raw : String, facets : Facets) -> ValResult {
+fn check_list(item : SimpleType, raw : String, facets : Facets) -> ValResult {
   let collapsed = ws_collapse(raw)
   if collapsed.is_empty() {
     return Err(Lexical("list value has no items"))
   }
   let items = split_spaces(collapsed)
   for it in items {
-    match check_value(make_atomic(item), it) {
+    match check_value(item, it) {
       Ok(_) => ()
       Err(e) => return Err(e)
     }
@@ -144,10 +148,10 @@ fn check_list(item : String, raw : String, facets : Facets) -> ValResult {
 }
 
 ///|
-fn check_union(members : Array[String], raw : String, facets : Facets) -> ValResult {
+fn check_union(members : Array[SimpleType], raw : String, facets : Facets) -> ValResult {
   let mut accepted : XsdValue? = None
   for m in members {
-    match check_value(make_atomic(m), raw) {
+    match check_value(m, raw) {
       Ok(v) => {
         accepted = Some(v)
         break

@@ -598,7 +598,7 @@ pub fn parse_duration(s : String) -> Result[Duration, ValErr] {
     // 'P'
     return Err(Lexical("duration must start with 'P'"))
   }
-  let mut months = 0
+  let mut months = 0L
   let mut seconds = decimal_zero()
   let mut seen_any = false
   let mut in_time = false
@@ -654,12 +654,12 @@ pub fn parse_duration(s : String) -> Result[Duration, ValErr] {
       if !frac.is_empty() {
         return Err(Lexical("only seconds may have a fraction in a duration"))
       }
-      let n = match parse_uint(digits) {
+      let n = match parse_uint64(digits) {
         Some(v) => v
-        None => return Err(Lexical("duration number too large"))
+        None => return Err(Lexical("duration number exceeds this implementation's range"))
       }
       match unit {
-        89 => months = months + n * 12
+        89 => months = months + n * 12L
         77 => months = months + n
         68 => seconds = decimal_add(seconds, decimal_of(false, "\{n * 86400}", ""))
         _ => ()
@@ -678,9 +678,9 @@ pub fn parse_duration(s : String) -> Result[Duration, ValErr] {
       if order != 3 && !frac.is_empty() {
         return Err(Lexical("only seconds may have a fraction in a duration"))
       }
-      let n = match parse_uint(digits) {
+      let n = match parse_uint64(digits) {
         Some(v) => v
-        None => return Err(Lexical("duration number too large"))
+        None => return Err(Lexical("duration number exceeds this implementation's range"))
       }
       match unit {
         72 => seconds = decimal_add(seconds, decimal_of(false, "\{n * 3600}", ""))
@@ -775,10 +775,10 @@ fn civil_from_days(z : Int64) -> (Int, Int, Int) {
 ///|
 /// Adds a duration's month part to a date, clamping the day to the length of
 /// the target month. Adding one month to 31 January gives 28 or 29 February.
-fn add_months(year : Int, month : Int, day : Int, months : Int) -> (Int, Int, Int) {
-  let total = year * 12 + (month - 1) + months
-  let mut ny = total / 12
-  let mut nm = total % 12
+fn add_months(year : Int, month : Int, day : Int, months : Int64) -> (Int, Int, Int) {
+  let total = year.to_int64() * 12L + (month - 1).to_int64() + months
+  let mut ny = (total / 12L).to_int()
+  let mut nm = (total % 12L).to_int()
   if nm < 0 {
     nm = nm + 12
     ny = ny - 1

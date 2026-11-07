@@ -199,13 +199,13 @@ fn compare_durations(a : Duration, b : Duration) -> Int? {
 fn duration_endpoint_seconds(base : Int64, d : Duration) -> Int64 {
   let (y, m, day) = civil_from_days(base)
   let sign = if d.negative { -1 } else { 1 }
-  let (ny, nm, nd) = add_months(y, m, day, d.months * sign)
+  let (ny, nm, nd) = add_months(y, m, day, d.months * sign.to_int64())
   let day_shift = days_from_civil(ny, nm, nd) - base
   day_shift * 86400L + decimal_to_seconds_int64(d.seconds) * sign.to_int64()
 }
 
 ///|
-fn signed_months(d : Duration) -> Int {
+fn signed_months(d : Duration) -> Int64 {
   if d.negative {
     -d.months
   } else {

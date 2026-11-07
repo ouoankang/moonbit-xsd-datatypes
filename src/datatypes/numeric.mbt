@@ -121,10 +121,23 @@ pub fn decimal_to_double(s : String) -> Double {
     }
   }
   let mut v = mant.to_double()
+  // Scaling in one step overflows for subnormals: 10^324 is infinity, so
+  // 5 / 10^324 would come out as 0 instead of 5e-324. Splitting the exponent
+  // keeps every intermediate representable.
   if e > 0 {
-    v = v * pow10_double(e)
+    let mut left = e
+    while left > 0 {
+      let step = if left > 22 { 22 } else { left }
+      v = v * pow10_double(step)
+      left = left - step
+    }
   } else if e < 0 {
-    v = v / pow10_double(-e)
+    let mut left = -e
+    while left > 0 {
+      let step = if left > 22 { 22 } else { left }
+      v = v / pow10_double(step)
+      left = left - step
+    }
   }
   if negative {
     -v

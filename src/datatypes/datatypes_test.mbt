@@ -374,7 +374,7 @@ test "list type counts items for length" {
     total_digits: None,
     fraction_digits: None,
   }
-  let t = @datatypes.make_list("NMTOKEN", f)
+  let t = @datatypes.make_list(@datatypes.make_atomic("NMTOKEN"), f)
   let passes = fn(s : String) -> Bool {
     match @datatypes.check_value(t, s) {
       Ok(_) => true
@@ -389,7 +389,7 @@ test "list type counts items for length" {
 
 ///|
 test "union takes the first member that accepts" {
-  let t = @datatypes.make_union(["int", "date"], @datatypes.no_facets())
+  let t = @datatypes.make_union([@datatypes.make_atomic("int"), @datatypes.make_atomic("date")], @datatypes.no_facets())
   assert_true(
     match @datatypes.check_value(t, "42") {
       Ok(_) => true
